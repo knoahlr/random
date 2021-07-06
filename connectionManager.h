@@ -1,3 +1,4 @@
+
 /*
  Opens WiFi Driver and connects to WiFI AP by adding profile and setting auto connect policy.
  */
@@ -15,7 +16,7 @@ void CM_ConfigureWiFiParameters(void);
  * Calls sl_WlanGetNetworkList and loops through valid networks and extracts bssid from specified ssid.
  * Should fail if specified ssid isn't found
  */
-Sl_WlanNetworkEntry_t CM_ReadBssid(_i8* hostName, _u8* apMACAddress);
+Sl_WlanNetworkEntry_t CM_ReadAPBssid(_i8* hostName, _u8* apMACAddress);
 
 /*
  * monitor the state of the WiFi connection

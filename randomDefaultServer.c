@@ -76,7 +76,6 @@ void defaultServerTask(UArg arg0, UArg arg1)
 
 
 
-
             //Apply gamepad state
             //-- Left Analog for Servo
             //-- Right Trigger for Motor

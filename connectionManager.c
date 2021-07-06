@@ -17,6 +17,7 @@
 
 /* Example/Board Header file */
 #include "Board.h"
+//#include "connectionManager.h"
 
 #if defined(MSP430WARE) || defined(MSP432WARE)
 #define SPI_BIT_RATE    2000000
@@ -26,16 +27,23 @@
 #define SPI_BIT_RATE    14000000
 #endif
 
+typedef struct
+{
+    bool ipAcquired;
+    bool deviceConnected;
+    _u32 ipv4Address;
+}ConnectionStatus;
+
 bool deviceConnected = false;
 bool ipAcquired = false;
 bool smartConfigFlag = false;
 
+ConnectionStatus   connectionState;
 
-//############################
-
-
-
-
+/*
+ * Structure to hold connection status information
+ */
+//############################ SimpleLink Asynchronous Event Handlers #################################################
 
 /*
  *  ======== SimpleLinkGeneralEventHandler ========
@@ -69,7 +77,8 @@ void SimpleLinkNetAppEventHandler(SlNetAppEvent_t *pArgs)
 {
     switch (pArgs->Event) {
         case SL_NETAPP_IPV4_IPACQUIRED_EVENT:
-            ipAcquired = true;
+            connectionState.ipAcquired = true;
+            connectionState.ipv4Address = pArgs->EventData.ipAcquiredV4.ip;
             break;
 
         default:
@@ -99,10 +108,10 @@ void SimpleLinkWlanEventHandler(SlWlanEvent_t *pArgs)
 {
     switch (pArgs->Event) {
         case SL_WLAN_CONNECT_EVENT:
-            deviceConnected = true;
+            connectionState.deviceConnected = true;
             break;
         case SL_WLAN_DISCONNECT_EVENT:
-            deviceConnected = false;
+            connectionState.deviceConnected = false;
             break;
         default:
             break;
@@ -160,9 +169,9 @@ void CM_ConfigureWiFiParameters(void) {
 }
 
 
-//####################################
+//############################ End of SimpleLink Asynchronous Event Handlers #################################################
 
-Sl_WlanNetworkEntry_t CM_ReadBssid(_u8* hostname, _u8* apMACAddress)
+Sl_WlanNetworkEntry_t CM_ReadAPBssid(_u8* hostname, _u8* apMACAddress)
 {
     Sl_WlanNetworkEntry_t networkEntries[20];
     _i8 validNetworkCount = sl_WlanGetNetworkList(0, 20, &networkEntries[0]);
@@ -195,13 +204,15 @@ void * CM_AddConnectionProfile(void)
 {
     WiFi_Params        wifiParams;
     WiFi_Handle        handle;
-
     _i8 _hostName[] = "Hidden Gotham Village";
     _i8 _password[] = "BatmanUchiha";
 
     _i16 wlanConnectRC = -123;
     SlSecParams_t securityParameter;
-    _u8 apMacAddr[6];
+    _u8 apMacAddr[SL_MAC_ADDR_LEN];
+    _u8 deviceMACAddress[SL_MAC_ADDR_LEN];
+    _u8 deviceMACAddressLen = SL_MAC_ADDR_LEN;
+
 //    SlSecParamsExt_t extSecurityParameter;
 //    Sl_WlanNetworkEntry_t specifiedAccessPoint; //Acces point specified by _hostName (SSID)
 
@@ -224,14 +235,16 @@ void * CM_AddConnectionProfile(void)
     }
 
     CM_ConfigureWiFiParameters();
-    CM_ReadBssid(&_hostName[0], &apMacAddr[0]);
+//    CM_ReadAPBssid(&_hostName[0], &apMacAddr[0]);
+
+    sl_NetCfgGet(SL_MAC_ADDRESS_GET, NULL, &deviceMACAddressLen, (_u8 *)deviceMACAddress);
 
     int connectionRetryCounter = 0;
-    wlanConnectRC = sl_WlanProfileAdd(&_hostName[0], sizeof(_hostName), &apMacAddr[0], &securityParameter, NULL, 7, NULL);
+    wlanConnectRC = sl_WlanProfileAdd(&_hostName[0], sizeof(_hostName), &deviceMACAddress[0], &securityParameter, NULL, 7, NULL);
 
     if (wlanConnectRC >= 0)
     {
-        while ((deviceConnected != true) || (ipAcquired != true))
+        while ((connectionState.deviceConnected != true) || (connectionState.ipAcquired != true))
         {
             connectionRetryCounter ++;
             GPIO_toggle(Board_LED1);
@@ -239,5 +252,5 @@ void * CM_AddConnectionProfile(void)
             Task_sleep(500);
         }
     }
-    if(deviceConnected) {GPIO_write(Board_LED1, Board_LED_ON);}
+    if(connectionState.deviceConnected && connectionState.ipAcquired) {GPIO_write(Board_LED1, Board_LED_ON);}
 }
