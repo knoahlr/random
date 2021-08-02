@@ -6,6 +6,9 @@
  */
 
 /* XDCtools Header files */
+#include <communication/connectionManager.h>
+#include <gamepad/GamepadInput.h>
+#include <hardware/stepperControl.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 #include <ti/sysbios/knl/Semaphore.h>
@@ -16,9 +19,6 @@
 #include "socket.h"
 
 /*Application specific headers*/
-#include "StepperControl.h"
-#include "GamepadInput.h"
-#include "connectionManager.h"
 
 #define TCPPORT         1000
 #define TCPPACKETSIZE   256

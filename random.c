@@ -31,10 +31,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- *  ======== empty_min.c ========
- */
-
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -51,27 +47,20 @@
 
 
 /* TI-RTOS Header files */
-// #include <ti/drivers/EMAC.h>
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/PWM.h>
 #include <ti/drivers/WiFi.h>
 
-/* SimpleLink Wi-Fi Host Driver Header files */
+/* SimpleLink Wi-Fi Host Driver and board Header files */
 #include <simplelink.h>
-#include <driverlib/gpio.h>
-#include <inc/hw_memmap.h>
-#include <inc/hw_gpio.h>
-#include "driverlib/pin_map.h"
-#include <driverlib/sysctl.h>
-#include <randomDefaultServer.h>
-#include "driverlib/pwm.h"
 #include "Board.h"
 
+#include <hardware/dcMotorControl.h>
+#include <communication/connectionManager.h>
+#include <defaultServer/randomDefaultServer.h>
+#include <hardware/stepperControl.h>
 
 /* Local Platform Specific Header file */
-#include "StepperControl.h"
-#include "connectionManager.h"
-#include "hardwareController.h"
 
 #define GPIO_TASKSTACKSIZE     1024
 #define CM_TASKSTACKSIZE     1024

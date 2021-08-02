@@ -18,7 +18,7 @@
 #include <ti/sysbios/knl/clock.h>
 #include <ti/sysbios/knl/Mailbox.h>
 
-#include "GamepadInput.h"
+#include "../gamepad/GamepadInput.h"
 
 //Hardware controller task
 

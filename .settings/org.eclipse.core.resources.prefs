@@ -1,4 +1,12 @@
 eclipse.preferences.version=1
+encoding//Debug/communication/subdir_rules.mk=UTF-8
+encoding//Debug/communication/subdir_vars.mk=UTF-8
+encoding//Debug/defaultServer/subdir_rules.mk=UTF-8
+encoding//Debug/defaultServer/subdir_vars.mk=UTF-8
+encoding//Debug/gamepad/subdir_rules.mk=UTF-8
+encoding//Debug/gamepad/subdir_vars.mk=UTF-8
+encoding//Debug/hardware/subdir_rules.mk=UTF-8
+encoding//Debug/hardware/subdir_vars.mk=UTF-8
 encoding//Debug/makefile=UTF-8
 encoding//Debug/objects.mk=UTF-8
 encoding//Debug/sources.mk=UTF-8

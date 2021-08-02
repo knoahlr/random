@@ -1,24 +1,7 @@
 
-#include <stdbool.h>
-#include <string.h>
-
-#include <xdc/std.h>
-#include <xdc/runtime/System.h>
-
-#include <ti/sysbios/BIOS.h>
-#include <ti/sysbios/knl/Task.h>
-#include <ti/sysbios/knl/Semaphore.h>
-
-#include <ti/drivers/GPIO.h>
-#include <ti/drivers/WiFi.h>
-
-/* SimpleLink Wi-Fi Host Driver Header files */
-#include <osi.h>
-#include <simplelink.h>
-
 /* Example/Board Header file */
-#include "Board.h"
-//#include "connectionManager.h"
+
+#include "connectionManager.h"
 
 #if defined(MSP430WARE) || defined(MSP432WARE)
 #define SPI_BIT_RATE    2000000

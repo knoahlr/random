@@ -5,7 +5,7 @@
  *      Author: Noah Workstation
  */
 
-#include "hardwareController.h"
+#include <hardware/dcMotorControl.h>
 
 
 void updateMotorPWMDuty(UArg arg0, UArg arg1)
