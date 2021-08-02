@@ -7,6 +7,7 @@
 
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Semaphore.h>
 
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/WiFi.h>
@@ -200,12 +201,14 @@ Sl_WlanNetworkEntry_t CM_ReadAPBssid(_u8* hostname, _u8* apMACAddress)
 }
 
 
-void * CM_AddConnectionProfile(void)
+void * CM_AddConnectionProfile(UArg arg0)
 {
     WiFi_Params        wifiParams;
     WiFi_Handle        handle;
     _i8 _hostName[] = "Hidden Gotham Village";
     _i8 _password[] = "BatmanUchiha";
+
+    Semaphore_Handle sem = (Semaphore_Handle)arg0;
 
     _i16 wlanConnectRC = -123;
     SlSecParams_t securityParameter;
@@ -252,5 +255,9 @@ void * CM_AddConnectionProfile(void)
             Task_sleep(500);
         }
     }
-    if(connectionState.deviceConnected && connectionState.ipAcquired) {GPIO_write(Board_LED1, Board_LED_ON);}
+    if(connectionState.deviceConnected && connectionState.ipAcquired)
+    {
+        GPIO_write(Board_LED1, Board_LED_ON);
+        Semaphore_post(sem);
+    }
 }

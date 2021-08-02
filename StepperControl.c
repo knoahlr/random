@@ -130,3 +130,71 @@ void fullStepperToggle()
             break;
     }
 }
+
+
+//
+//void runStepper()
+//
+//{
+//    while(true)
+//    {
+////        toggleStepper();
+//        fullStepperToggle();
+//        Task_sleep(1);
+//    }
+//
+//}
+//
+//void initializePWMPins()
+//{
+//    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOG);
+//    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOK);
+//    SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM0);
+//
+//    SysCtlPWMClockSet(SYSCTL_PWMDIV_1);
+//
+//    //Configure GPIO Pins - Port Base G and K, pins 5, 6 and 7
+//    GPIOPinConfigure(GPIO_PG1_M0PWM5);
+//    GPIOPinConfigure(GPIO_PK4_M0PWM6);
+//    GPIOPinConfigure(GPIO_PK5_M0PWM7);
+//
+//    GPIOPinTypePWM(GPIO_PORTG_BASE, GPIO_PIN_1);
+//    GPIOPinTypePWM(GPIO_PORTK_BASE, GPIO_PIN_4);
+//    GPIOPinTypePWM(GPIO_PORTK_BASE, GPIO_PIN_5);
+//
+//    PWMGenConfigure(PWM0_BASE, PWM_GEN_0, PWM_GEN_MODE_DOWN|PWM_GEN_MODE_NO_SYNC);
+//    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_0, 400);
+//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_5, 200);
+//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_6, 200);
+//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7, 200);
+//
+//    PWMGenEnable(PWM0_BASE, PWM_GEN_0);
+//    PWMOutputState(PWM0_BASE, (PWM_OUT_5_BIT | PWM_OUT_6_BIT | PWM_OUT_7_BIT), true);
+//
+//
+//}
+
+
+//void initializePWMDriver()
+//{
+//    PWM_Handle handle;
+//    PWM_Params params;
+////    PWM_init();
+//    PWM_Params_init(&params);
+//
+//    // Output low when PWM is not running
+//    params.period = 20000;            // - Period in microseconds
+// // Duty is fraction of period
+//    params.dutyMode = PWM_DUTY_TIME;
+//
+//    handle = PWM_open(Board_PWM0, &params);
+//
+//    if (handle == NULL) {
+//        System_printf("PWM did not open");
+//        Task_exit();
+//    }
+//    PWM_setDuty(handle, 5000);
+//
+//
+////    PWM_start(handle);
+//}

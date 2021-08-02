@@ -46,6 +46,9 @@
 /* BIOS Header files */
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Semaphore.h>
+#include <ti/sysbios/knl/Mailbox.h>
+
 
 /* TI-RTOS Header files */
 // #include <ti/drivers/EMAC.h>
@@ -68,87 +71,27 @@
 /* Local Platform Specific Header file */
 #include "StepperControl.h"
 #include "connectionManager.h"
+#include "hardwareController.h"
 
 #define GPIO_TASKSTACKSIZE     1024
 #define CM_TASKSTACKSIZE     1024
-#define DEFAULT_SERVER_TASKSTACKSIZE   2048
+#define DEFAULT_SERVER_TASKSTACKSIZE   1024
+#define PWM_LED_TASKSTACKSIZE   512
 
 #define TCPPORT         1000
-#define TCPPACKETSIZE   256
+#define TCPPACKETSIZE   100
 
 
 Task_Struct task_GPIOStruct;
 Task_Struct task_DefaultServerStruct;
 Task_Struct task_ConnectionManagerStruct;
+Task_Struct task_PwmLedStruct;
 
 Char task_DefaultServerStack[DEFAULT_SERVER_TASKSTACKSIZE];
 Char task_GPIOStack[GPIO_TASKSTACKSIZE];
 Char task_ConnectionManagerStack[CM_TASKSTACKSIZE];
+Char task_PwmLEDStack[PWM_LED_TASKSTACKSIZE];
 
-//
-//void runStepper()
-//{
-//    while(true)
-//    {
-////        toggleStepper();
-//        fullStepperToggle();
-//        Task_sleep(1);
-//    }
-//
-//}
-//void initPWMPins()
-//{
-//    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOG);
-//    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOK);
-//    SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM0);
-//
-//    SysCtlPWMClockSet(SYSCTL_PWMDIV_1);
-//
-//    //Configure GPIO Pins - Port Base G and K, pins 5, 6 and 7
-//    GPIOPinConfigure(GPIO_PG1_M0PWM5);
-//    GPIOPinConfigure(GPIO_PK4_M0PWM6);
-//    GPIOPinConfigure(GPIO_PK5_M0PWM7);
-//
-//    GPIOPinTypePWM(GPIO_PORTG_BASE, GPIO_PIN_1);
-//    GPIOPinTypePWM(GPIO_PORTK_BASE, GPIO_PIN_4);
-//    GPIOPinTypePWM(GPIO_PORTK_BASE, GPIO_PIN_5);
-//
-//    PWMGenConfigure(PWM0_BASE, PWM_GEN_0, PWM_GEN_MODE_DOWN|PWM_GEN_MODE_NO_SYNC);
-//    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_0, 400);
-//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_5, 200);
-//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_6, 200);
-//    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7, 200);
-//
-//    PWMGenEnable(PWM0_BASE, PWM_GEN_0);
-//    PWMOutputState(PWM0_BASE, (PWM_OUT_5_BIT | PWM_OUT_6_BIT | PWM_OUT_7_BIT), true);
-//
-//
-//}
-//
-//
-//void initPWMRTOS()
-//{
-//    PWM_Handle handle;
-//    PWM_Params params;
-////    PWM_init();
-//    PWM_Params_init(&params);
-//
-//    // Output low when PWM is not running
-//    params.period = 1000000;            // 1MHz
-// // Duty is fraction of period
-//    params.dutyMode = PWM_DUTY_TIME;
-//
-//    handle = PWM_open(Board_PWM6, &params);
-//
-//    if (handle == NULL) {
-//        System_printf("PWM did not open");
-//        Task_exit();
-//    }
-//    PWM_setDuty(handle, 500000);
-//
-//
-////    PWM_start(handle);
-//}
 
 /*
  *  ======== main ========
@@ -156,9 +99,19 @@ Char task_ConnectionManagerStack[CM_TASKSTACKSIZE];
 int main(void)
 {
 
+    // TASK Declarations
     Task_Params gpioTaskParams;
     Task_Params connectionManagerParams;
     Task_Params defaultServerTaskParams;
+    Task_Params pwmLEDTaskParams;
+    Task_Handle connectionManagerTaskHandle;
+    Task_Handle defaultServerTaskHandle;
+    Task_Handle pwmLEDTaskHandle;
+
+    // Semaphore Declarations
+
+    Semaphore_Handle semaphoreHandle = Semaphore_create(0, NULL, NULL);
+    Mailbox_Handle mailboxHandle = Mailbox_create(sizeof(Gamepad), 1, NULL, NULL);
 
     /* Call board init functions */
     Board_initGeneral();
@@ -166,34 +119,47 @@ int main(void)
     Board_initWiFi();
     Board_initPWM();
 
-    //    stepperInit();
-    //    initPWMRTOS();
+    /* Construct LED Task thread */
+    Task_Params_init(&pwmLEDTaskParams);
+    pwmLEDTaskParams.stackSize = PWM_LED_TASKSTACKSIZE;
+    pwmLEDTaskParams.stack = &task_PwmLEDStack;
+    pwmLEDTaskParams.arg0 = mailboxHandle;
+    Task_construct(&task_PwmLedStruct, (Task_FuncPtr)updateMotorPWMDuty, &pwmLEDTaskParams, NULL);
 
-//    /* Construct Stepper Control Task thread */
-//    Task_Params_init(&gpioTaskParams);
-//    gpioTaskParams.stackSize = GPIO_TASKSTACKSIZE;
-//    gpioTaskParams.stack = &taskGPIOStack;
-//    Task_construct(&taskGPIOStruct, (Task_FuncPtr)runStepper, &gpioTaskParams, NULL);
-//
-    /* Construct serverTask Task thread */
-//    Task_Params_init(&defaultServerTaskParams);
-//    defaultServerTaskParams.arg0 = 1000;
-//    defaultServerTaskParams.stackSize = DEFAULT_SERVER_TASKSTACKSIZE;
-//    defaultServerTaskParams.stack = &task_DefaultServerStack;
-//    defaultServerTaskParams.priority = 1;
-//    Task_construct(&task_DefaultServerStruct, (Task_FuncPtr)defaultServerTask, &defaultServerTaskParams, NULL);
+    /* Turn on user LED */
+    GPIO_write(Board_LED0, Board_LED_ON);
 
     Task_Params_init(&connectionManagerParams);
+    connectionManagerParams.arg0 = semaphoreHandle;
     connectionManagerParams.stackSize = CM_TASKSTACKSIZE;
     connectionManagerParams.stack = &task_ConnectionManagerStack;
-    Task_construct(&task_ConnectionManagerStruct, (Task_FuncPtr)CM_AddConnectionProfile, &connectionManagerParams, NULL);
+    connectionManagerParams.priority = 10;
+//    Task_construct(&task_ConnectionManagerStruct, (Task_FuncPtr)CM_AddConnectionProfile, &connectionManagerParams, NULL);
+    connectionManagerTaskHandle = Task_create((Task_FuncPtr)CM_AddConnectionProfile, &connectionManagerParams, NULL);
 
+    if (connectionManagerTaskHandle == NULL){ System_printf("Failed to start server task");}
 
-/* SysMin will only print to the console when you call flush or exit */
+    /* Construct serverTask Task thread */
+    Task_Params_init(&defaultServerTaskParams);
+    defaultServerTaskParams.arg0 = mailboxHandle;
+    defaultServerTaskParams.arg1 = semaphoreHandle;
+    defaultServerTaskParams.stackSize = DEFAULT_SERVER_TASKSTACKSIZE;
+    defaultServerTaskParams.stack = &task_DefaultServerStack;
+    defaultServerTaskParams.priority = 2;
+//    Task_construct(&task_DefaultServerStruct, (Task_FuncPtr)defaultServerTask, &defaultServerTaskParams, NULL);
+    defaultServerTaskHandle = Task_create((Task_FuncPtr)defaultServerTask, &defaultServerTaskParams, NULL);
+
+    if (defaultServerTaskHandle == NULL){System_printf("Failed to start server task");}
+
+    System_printf("Here NOW\n");
+
+    /* SysMin will only print to the console when you call flush or exit */
     System_flush();
 
     /* Start BIOS */
     BIOS_start();
+
+//    while(Task_getMode(connectionManagerTaskHandle) == ti_sysbios_knl_Task_Mode_RUNNING || Task_getMode(connectionManagerTaskHandle) == ti_sysbios_knl_Task_Mode_READY){}
 
     return (0);
 }
