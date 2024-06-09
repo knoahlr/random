@@ -25,7 +25,7 @@
 
 void defaultServerTask(UArg arg0, UArg arg1)
 {
-    Gamepad gamepadState = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};;
+    Gamepad gamepadState = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     int         bytesRcvd;
     int         bytesSent;
     int         status;

@@ -19,6 +19,7 @@
 #include <ti/sysbios/knl/Mailbox.h>
 
 #include "../gamepad/GamepadInput.h"
+#include "driverlib/uart.h"
 
 //Hardware controller task
 

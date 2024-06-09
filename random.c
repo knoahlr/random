@@ -44,6 +44,7 @@
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Semaphore.h>
 #include <ti/sysbios/knl/Mailbox.h>
+#include <ti/sysbios/knl/Queue.h>
 
 
 /* TI-RTOS Header files */
@@ -57,15 +58,17 @@
 
 #include <hardware/dcMotorControl.h>
 #include <communication/connectionManager.h>
+#include <uart/uart_interface.h>
 #include <defaultServer/randomDefaultServer.h>
 #include <hardware/stepperControl.h>
 
 /* Local Platform Specific Header file */
 
 #define GPIO_TASKSTACKSIZE     1024
-#define CM_TASKSTACKSIZE     1024
-#define DEFAULT_SERVER_TASKSTACKSIZE   1024
-#define PWM_LED_TASKSTACKSIZE   512
+#define UART_TASKSTACKSIZE 8192
+#define CM_TASKSTACKSIZE     8192
+#define DEFAULT_SERVER_TASKSTACKSIZE   8192
+#define MOTOR_DUTY_TASKSTACKSIZE   2048
 
 #define TCPPORT         1000
 #define TCPPACKETSIZE   100
@@ -75,11 +78,13 @@ Task_Struct task_GPIOStruct;
 Task_Struct task_DefaultServerStruct;
 Task_Struct task_ConnectionManagerStruct;
 Task_Struct task_PwmLedStruct;
+Task_Struct task_uartStruct;
 
 Char task_DefaultServerStack[DEFAULT_SERVER_TASKSTACKSIZE];
 Char task_GPIOStack[GPIO_TASKSTACKSIZE];
 Char task_ConnectionManagerStack[CM_TASKSTACKSIZE];
-Char task_PwmLEDStack[PWM_LED_TASKSTACKSIZE];
+Char task_motorDutyStack[MOTOR_DUTY_TASKSTACKSIZE];
+Char task_UARTStack[UART_TASKSTACKSIZE];
 
 
 /*
@@ -89,30 +94,34 @@ int main(void)
 {
 
     // TASK Declarations
-    Task_Params gpioTaskParams;
     Task_Params connectionManagerParams;
     Task_Params defaultServerTaskParams;
     Task_Params pwmLEDTaskParams;
+    Task_Params uartTaskParams;
     Task_Handle connectionManagerTaskHandle;
     Task_Handle defaultServerTaskHandle;
-    Task_Handle pwmLEDTaskHandle;
+    Task_Handle uartTaskHandle;
 
     // Semaphore Declarations
 
     Semaphore_Handle semaphoreHandle = Semaphore_create(0, NULL, NULL);
     Mailbox_Handle mailboxHandle = Mailbox_create(sizeof(Gamepad), 1, NULL, NULL);
+    Queue_Handle uart_queue_handle= Queue_create(NULL, NULL);
 
     /* Call board init functions */
+
     Board_initGeneral();
     Board_initGPIO();
     Board_initWiFi();
     Board_initPWM();
+    Board_initUART();
 
-    /* Construct LED Task thread */
+    /* Construct LED Task thread  --- TODO Rename to DC Motor Control Task*/
     Task_Params_init(&pwmLEDTaskParams);
-    pwmLEDTaskParams.stackSize = PWM_LED_TASKSTACKSIZE;
-    pwmLEDTaskParams.stack = &task_PwmLEDStack;
+    pwmLEDTaskParams.stackSize = MOTOR_DUTY_TASKSTACKSIZE;
+    pwmLEDTaskParams.stack = &task_motorDutyStack;
     pwmLEDTaskParams.arg0 = mailboxHandle;
+    pwmLEDTaskParams.priority = 2;
     Task_construct(&task_PwmLedStruct, (Task_FuncPtr)updateMotorPWMDuty, &pwmLEDTaskParams, NULL);
 
     /* Turn on user LED */
@@ -120,13 +129,22 @@ int main(void)
 
     Task_Params_init(&connectionManagerParams);
     connectionManagerParams.arg0 = semaphoreHandle;
+    connectionManagerParams.arg1 = uart_queue_handle;
     connectionManagerParams.stackSize = CM_TASKSTACKSIZE;
     connectionManagerParams.stack = &task_ConnectionManagerStack;
-    connectionManagerParams.priority = 10;
-//    Task_construct(&task_ConnectionManagerStruct, (Task_FuncPtr)CM_AddConnectionProfile, &connectionManagerParams, NULL);
-    connectionManagerTaskHandle = Task_create((Task_FuncPtr)CM_AddConnectionProfile, &connectionManagerParams, NULL);
+    connectionManagerParams.priority = 1;
+    connectionManagerTaskHandle = Task_create((Task_FuncPtr)CM_connection_mgr, &connectionManagerParams, NULL);
 
-    if (connectionManagerTaskHandle == NULL){ System_printf("Failed to start server task");}
+    if (connectionManagerTaskHandle == NULL){ System_printf("Failed to connection mgr task");}
+
+    /* Construct Task to manage UART connection*/
+    Task_Params_init(&uartTaskParams);
+    uartTaskParams.stackSize = UART_TASKSTACKSIZE;
+    uartTaskParams.stack = &task_UARTStack;
+    uartTaskParams.arg0 = uart_queue_handle;
+    uartTaskParams.priority = 5;
+    uartTaskHandle = Task_create((Task_FuncPtr)uart_messaging_service, &uartTaskParams, NULL);
+    //Task_construct(&task_uartStruct, (Task_FuncPtr)uart_messaging_service, &uartTaskParams, NULL);
 
     /* Construct serverTask Task thread */
     Task_Params_init(&defaultServerTaskParams);
@@ -135,7 +153,6 @@ int main(void)
     defaultServerTaskParams.stackSize = DEFAULT_SERVER_TASKSTACKSIZE;
     defaultServerTaskParams.stack = &task_DefaultServerStack;
     defaultServerTaskParams.priority = 2;
-//    Task_construct(&task_DefaultServerStruct, (Task_FuncPtr)defaultServerTask, &defaultServerTaskParams, NULL);
     defaultServerTaskHandle = Task_create((Task_FuncPtr)defaultServerTask, &defaultServerTaskParams, NULL);
 
     if (defaultServerTaskHandle == NULL){System_printf("Failed to start server task");}
