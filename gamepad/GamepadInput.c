@@ -16,7 +16,7 @@ enum ControllerState {
 
 //Data Format: [FSS, CommandID, Len, RT, LT, RB, LB, RA.x, RA.y, LA.x, LA.y, X, A, B, Y]
 //Frame Synchronization Sequence: [255, 255, 255]
-bool commandFrameParse(Gamepad *gamepad, char Input[], size_t inputBufferSize)
+bool commandFrameParse(Gamepad *gamepad, uint8_t *Input, size_t inputBufferSize)
 {
 
 //    char bufferDuplicate[100];

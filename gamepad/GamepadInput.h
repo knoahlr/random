@@ -34,6 +34,6 @@ typedef struct  ControlInterpreter
 } Gamepad;
 
 
-bool commandFrameParse(Gamepad *gamepad, char Input[], size_t inputBufferSize);
+bool commandFrameParse(Gamepad *gamepad,  uint8_t *Input, size_t inputBufferSize);
 
 #endif /* GAMEPADINPUT_H_ */

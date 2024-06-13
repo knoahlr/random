@@ -22,6 +22,8 @@ static uint8_t deviceMACAddress[SL_MAC_ADDR_LEN];
 static uint8_t deviceMACAddressLen = SL_MAC_ADDR_LEN;
 static struct configured_profiles saved_profiles;
 
+ static bool connected = false;
+
 bool deviceConnected = false;
 bool ipAcquired = false;
 bool smartConfigFlag = false;
@@ -40,7 +42,10 @@ static struct connection_status connection_state;
  */
 void SimpleLinkGeneralEventHandler(SlDeviceEvent_t *pDevEvent)
 {
-    System_printf("General event occurred, Event ID: %x", pDevEvent->Event);
+    printf("General Event Handler - ID=%d Sender=%d\n\n",
+	   pDevEvent->EventData.deviceEvent.status,  // status of the general event
+	   pDevEvent->EventData.deviceEvent.sender); // sender type
+    System_printf("General event occurred, Event ID: %x\n", pDevEvent->Event);
     System_flush();
 }
 
@@ -65,14 +70,20 @@ void SimpleLinkHttpServerCallback(SlHttpServerEvent_t *pHttpEvent,
  */
 void SimpleLinkNetAppEventHandler(SlNetAppEvent_t *pArgs)
 {
+    if(pArgs == NULL){
+	printf("Net APP Event Handler callback is NULL");
+	return;
+    }
     switch (pArgs->Event) {
         case SL_NETAPP_IPV4_IPACQUIRED_EVENT:
             connection_state.ipAcquired = true;
             connection_state.ipv4Address = pArgs->EventData.ipAcquiredV4.ip;
+            printf("\nIP Address Acquired: %u\n",connection_state.ipv4Address);
             break;
         case SL_NETAPP_IPV6_IPACQUIRED_EVENT:
             connection_state.ipAcquired = true;
-            connection_state.ipv6Address = pArgs->EventData.ipAcquiredV6.ip;
+            memcpy(connection_state.ipv6Address, pArgs->EventData.ipAcquiredV6.ip, 4);
+            printf("\nIP Address Acquired: %s\n",connection_state.ipv6Address);
         default:
             break;
     }
@@ -99,6 +110,7 @@ void SimpleLinkSockEventHandler(SlSockEvent_t *pSock)
 void SimpleLinkWlanEventHandler(SlWlanEvent_t *pArgs)
 {
     switch (pArgs->Event) {
+	printf("WLAN EVENT:%d \n", pArgs->Event);
         case SL_WLAN_CONNECT_EVENT:
             connection_state.deviceConnected = true;
             break;
@@ -125,6 +137,9 @@ void CM_configure_wifi_parameters(void) {
     if (mode != ROLE_STA) {
         sl_WlanSetMode(ROLE_STA);
 
+        printf("Configuring Station mode. Mode: %d", ROLE_STA);
+//        System_printf("Configuring Station mode. Mode: %d", ROLE_STA);
+//        System_flush();
         /* Restart network processor */
         sl_Stop(BIOS_WAIT_FOREVER);
         mode = sl_Start(0, 0, 0);
@@ -137,7 +152,7 @@ void CM_configure_wifi_parameters(void) {
 
     /* Set auto connect policy */
     response = sl_WlanPolicySet(SL_POLICY_CONNECTION,
-            SL_CONNECTION_POLICY(1, 0, 0, 0, 0), NULL, 0);
+            SL_CONNECTION_POLICY(1, 0, 0, 1, 0), NULL, 0);
     if (response < 0) {
         System_abort("Failed to set connection policy to auto");
     }
@@ -148,12 +163,6 @@ void CM_configure_wifi_parameters(void) {
     if(response < 0) {
         System_abort("Could not enable DHCP client");
     }
-
-    //set country code and channel
-//    _u8 country[] = "US";
-//    _u8 apChannel = 6;
-//    _i16 wlanSetRC = sl_WlanSet(SL_WLAN_CFG_GENERAL_PARAM_ID, WLAN_GENERAL_PARAM_OPT_COUNTRY_CODE, sizeof(country), &country[0]);
-//    _i16 wlanSetRC = sl_WlanSet(SL_WLAN_CFG_AP_ID, WLAN_AP_OPT_CHANNEL, sizeof(apChannel), &apChannel);
 
     /* Set connection variables to initial values */
     deviceConnected = false;
@@ -196,7 +205,7 @@ void CM_remove_all_connnection_profiles(){
    uint8_t delete_all_index = 255;
 
    int16_t ret = sl_WlanProfileDel(delete_all_index);
-   if(!ret) {
+   if(ret < 0) {
        System_printf("Failed to delete profiles\n");
        System_flush();
        return;
@@ -209,10 +218,11 @@ void CM_print_configured_profiles(){
 
     if(saved_profiles.config_net_count){
         uint8_t profile_index = 0;
+        printf("\nSaved profiles found");
         for(; profile_index < saved_profiles.config_net_count; profile_index++){
             uint8_t profile_mac[6];
             memcpy(&profile_mac, saved_profiles.profile_entries[profile_index].mac_address, 6);
-            System_printf("\nSSID: %s,\nPassword:%s \nMAC: %x\nSSID Len: %d\n", (char *)saved_profiles.profile_entries[profile_index].hostname,
+            System_printf("\t\nSSID: %s,\t\nPassword:%s \t\nMAC: %x\t\nSSID Len: %d\n", (char *)saved_profiles.profile_entries[profile_index].hostname,
                           saved_profiles.profile_entries[profile_index].sec_params.Key,
                           &profile_mac,
                           saved_profiles.profile_entries[profile_index].host_name_len);
@@ -254,8 +264,12 @@ int16_t CM_add_connection_profile(struct wlan_profile_info *profile)
 //
     System_printf("Adding profile.\nHostname:%s\npassword:%s\n", profile->hostname, profile->sec_params.Key);
 
-    wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, &deviceMACAddress[0], &profile->sec_params, NULL, profile->priority, NULL);
-
+    if(profile->sec_params.Type == SL_SEC_TYPE_OPEN) {
+	wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, &deviceMACAddress[0], NULL, NULL, profile->priority, NULL);
+//	wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, NULL, NULL, profile->priority, NULL);
+    } else {
+	wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, &profile->sec_params, NULL, profile->priority, NULL);
+    }
     return wlanConnectRC;
 }
 
@@ -348,18 +362,20 @@ void * CM_connection_mgr(UArg arg0, UArg arg1){
                    sprintf(uart_log->data, "Connection trial: %d.\n", connectionRetryCounter);
 		   Queue_enqueue(uart_queue_handle,  &uart_log->elem);
                  }
-                 int16_t ret = sl_WlanConnect(default_profile.hostname, default_profile.host_name_len,
-					      &deviceMACAddress[0], &default_profile.sec_params, NULL);
-                 System_printf("Connection trial: %d.\nRet: %d\n",connectionRetryCounter, ret);
+                 int16_t ret = -150;
+                 ret = sl_WlanConnect(default_profile.hostname, default_profile.host_name_len,
+					      NULL, &default_profile.sec_params, NULL);
+                 System_printf("Connection trial: %d. Ret: %i\n",connectionRetryCounter, ret);
              } else {
                  // successful connection. Release sem to kick start server
-                 System_printf("Successfully connected to AP.\nServer Task to start...");
-                 GPIO_write(Board_LED1, Board_LED_ON);
-                 Semaphore_post(sem);
+        	 if(!connected) {
+		   GPIO_write(Board_LED1, Board_LED_ON);
+		   Semaphore_post(sem);
+		   connected = true;
+        	 }
              }
         }
         System_flush();
         Task_sleep(500);
     }
-
 }

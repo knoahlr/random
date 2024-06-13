@@ -23,4 +23,10 @@
 
 //Hardware controller task
 
-void updateMotorPWMDuty(UArg arg0, UArg arg1);
+#define MAILBOX_TIMEOUT (20 * Clock_tickPeriod)
+
+void pwm_motor_proc_init(UArg arg0, UArg arg1);
+
+void log_gamepad_input(Gamepad *gamepadState);
+
+void update_motor_state();

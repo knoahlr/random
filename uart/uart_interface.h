@@ -12,11 +12,11 @@
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 
+#include <utils/uartstdio.h>
+
 #ifndef UART_IF_HEADER_FILE_H
 #define UART_IF_HEADER_FILE_H
 #define MAX_UART_RECORD 256
-
-//typedef struct log_uart uart_rec;
 
 struct log_uart{
     Queue_Elem elem;
@@ -24,11 +24,10 @@ struct log_uart{
     uint8_t len;
 };
 
-void configure_uart_interface();
+void configure_uart_interface(uint8_t uart_port);
 
 void uart_handler(void);
 
 void * uart_messaging_service(UArg arg0);
 
-//void print_uart_record(struct log_uart *rec);
 #endif

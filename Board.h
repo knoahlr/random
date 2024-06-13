@@ -73,7 +73,7 @@ extern "C" {
 #define Board_PWM4                  EK_TM4C129EXL_PWM4
 #define Board_PWM5                  EK_TM4C129EXL_PWM5
 #define Board_PWM6                  EK_TM4C129EXL_PWM6
-#define                   EK_TM4C129EXL_PWM7
+#define Board_PWM7                  EK_TM4C129EXL_PWM7
 
 
 #define Board_SDSPI0                EK_TM4C129EXL_SDSPI0

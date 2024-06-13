@@ -42,7 +42,7 @@ struct connection_status{
     bool ipAcquired;
     bool deviceConnected;
     _u32 ipv4Address;
-    _u32 ipv6Address;
+    _u32 ipv6Address[4];
 };
 
 

@@ -11,4 +11,11 @@
      Gamepad input sampled every 500ms
  */
 
-void defaultServerTask(UArg arg0, UArg arg1);
+
+#define MAILBOX_TIMEOUT (20 * Clock_tickPeriod)
+
+void clock_func(UArg arg0);
+
+void server_init(UArg arg0, UArg arg1);
+
+void tcp_message_handler(int server, Mailbox_Handle mail);
