@@ -49,7 +49,7 @@ struct connection_status{
 /*
  Opens WiFi Driver and connects to WiFI AP by adding profile and setting auto connect policy.
  */
-void * CM_connection_mgr(UArg arg0, UArg arg1);
+void CM_connection_mgr(UArg arg0, UArg arg1);
 
 
 /*

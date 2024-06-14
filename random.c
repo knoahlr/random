@@ -62,6 +62,8 @@
 #include <defaultServer/randomDefaultServer.h>
 #include <hardware/stepperControl.h>
 #include "driverlib/interrupt.h"
+#include <time.h>
+#include <ti/sysbios/hal/Seconds.h>
 
 /* Local Platform Specific Header file */
 
@@ -73,6 +75,9 @@
 
 #define TCPPORT         1000
 #define TCPPACKETSIZE   100
+
+
+#define STARTTIME 1718248069 //12/06/24
 
 
 Task_Struct task_GPIOStruct;
@@ -91,8 +96,7 @@ Char task_UARTStack[UART_TASKSTACKSIZE];
 /*
  *  ======== main ========
  */
-int main(void)
-{
+int main(void) {
 
     // TASK Declarations
     Task_Params conn_mgr_params;
@@ -117,6 +121,7 @@ int main(void)
     Board_initPWM();
     Board_initUART();
 
+    Seconds_set(STARTTIME);
 
     /* Construct  Task thread  --- TODO Rename to DC Motor Control Task*/
     Task_Params_init(&motor_control_params);

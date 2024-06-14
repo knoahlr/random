@@ -6,6 +6,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
+#include <ti/sysbios/hal/Seconds.h>
 /*
      Server Method to contionously listening for commands.
      Gamepad input sampled every 500ms
@@ -13,6 +14,9 @@
 
 
 #define MAILBOX_TIMEOUT (20 * Clock_tickPeriod)
+#define CONN_RETRY_TIMER_S 10
+
+bool is_conn_active(int client_fd);
 
 void clock_func(UArg arg0);
 
