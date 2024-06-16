@@ -5,6 +5,7 @@
  *      Author: Noah Workstation
  */
 
+#include <gamepad/gamepad_input.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -18,7 +19,6 @@
 #include <ti/sysbios/knl/clock.h>
 #include <ti/sysbios/knl/Mailbox.h>
 
-#include "../gamepad/GamepadInput.h"
 #include "driverlib/uart.h"
 
 //Hardware controller task

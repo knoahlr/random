@@ -5,7 +5,7 @@
  *      Author: Noah Workstation
  */
 
-#include <gamepad/GamepadInput.h>
+#include <gamepad/gamepad_input.h>
 
 //#define FULL_STATE 7
 

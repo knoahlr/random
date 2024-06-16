@@ -6,9 +6,10 @@
  */
 
 /* XDCtools Header files */
-#include <communication/connectionManager.h>
-#include <gamepad/GamepadInput.h>
-#include <hardware/stepperControl.h>
+#include <communication/connection_manager.h>
+#include <gamepad/gamepad_input.h>
+#include <hardware/stepper_control.h>
+#include <server/server.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 #include <ti/sysbios/knl/Semaphore.h>
@@ -20,7 +21,6 @@
 
 /* Local Platform Specific Header file */
 #include "socket.h"
-#include "randomDefaultServer.h"
 
 /*Application specific headers*/
 
@@ -137,10 +137,10 @@ void server_init(UArg arg0, UArg arg1)
 //    Clock_Params_init(&clock_params);
 //    clock_params.period = 1000;
 //    clock_params.startFlag = TRUE;
-////    clkParams.arg = ;
+//    clkParams.arg = ;
 //    clock_handle = Clock_create((Task_FuncPtr)clock_func, 3000, &clock_params, NULL);
 //    Clock_start(clock_handle);
-    //Clock_stop();
+//    Clock_stop();
 
     //use sufficiently large timeout since WiFi connection(s) is inherently unpredictable.
     //Note that this semaphore is posted after Ip has been acquired by the network driver.

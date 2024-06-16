@@ -5,7 +5,7 @@
  *      Author: Noah Workstation
  */
 
-#include <hardware/stepperControl.h>
+#include <hardware/stepper_control.h>
 
 
 stepperPhase stepper_1_State;

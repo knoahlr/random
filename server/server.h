@@ -7,6 +7,7 @@
 #include <stdio.h>
 
 #include <ti/sysbios/hal/Seconds.h>
+#include <ti/sysbios/knl/Mailbox.h>
 /*
      Server Method to contionously listening for commands.
      Gamepad input sampled every 500ms

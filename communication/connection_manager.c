@@ -2,7 +2,7 @@
 /* Example/Board Header file */
 
 //#include <communication/uart_interface.h>
-#include <communication/connectionManager.h>
+#include <communication/connection_manager.h>
 #include <utils/uartstdio.h>
 
 #if defined(MSP430WARE) || defined(MSP432WARE)

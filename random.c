@@ -59,8 +59,8 @@
 #include <hardware/dcMotorControl.h>
 #include <communication/connectionManager.h>
 #include <uart/uart_interface.h>
-#include <defaultServer/randomDefaultServer.h>
 #include <hardware/stepperControl.h>
+#include <server/server.h>
 #include "driverlib/interrupt.h"
 #include <time.h>
 #include <ti/sysbios/hal/Seconds.h>

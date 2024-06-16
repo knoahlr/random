@@ -5,7 +5,7 @@
  *      Author: Noah Workstation
  */
 
-#include <hardware/dcMotorControl.h>
+#include <hardware/dc_motor_control.h>
 #include <uart/uart_interface.h>
 
 static PWM_Handle pwm1;
