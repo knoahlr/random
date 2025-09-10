@@ -13,4 +13,5 @@
 	<filesToOpen value=""/>
 	<isTargetManual value="false"/>
 	<connection value="common/targetdb/connections/Stellaris_ICDI_Connection.xml"/>
+	<activeTargetConfiguration value="targetConfigs/Tiva TM4C129ENCPDT.ccxml"/>
 </projectOptions>

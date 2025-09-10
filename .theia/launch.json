@@ -1,0 +1,27 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "random",
+            "type": "ccs-debug",
+            "request": "launch",
+            "projectInfo": {
+                "name": "random",
+                "resourceId": "/random"
+            },
+            "connections": [
+                {
+                    "name": "Stellaris In-Circuit Debug Interface_0",
+                    "cores": [
+                        {
+                            "name": "CORTEX_M4_0",
+                            "debuggerSettings": {
+                                "data": "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\" ?>\n<PropertyValues/>\n"
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

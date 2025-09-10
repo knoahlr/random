@@ -56,10 +56,10 @@
 #include <simplelink.h>
 #include "Board.h"
 
-#include <hardware/dcMotorControl.h>
-#include <communication/connectionManager.h>
+#include <hardware/dc_motor_control.h>
+#include <communication/connection_manager.h>
 #include <uart/uart_interface.h>
-#include <hardware/stepperControl.h>
+#include <hardware/stepper_control.h>
 #include <server/server.h>
 #include "driverlib/interrupt.h"
 #include <time.h>
