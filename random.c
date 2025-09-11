@@ -161,7 +161,7 @@ int main(void) {
     server_task_params.stackSize = DEFAULT_SERVER_TASKSTACKSIZE;
     server_task_params.stack = &server_stack;
     server_task_params.priority = 2;
-    server_handle = Task_create((Task_FuncPtr)server_init, &server_task_params, NULL);
+    server_handle = Task_create((Task_FuncPtr)server_task, &server_task_params, NULL);
 
     if (!server_handle) {
         printf("Failed to start server task");
@@ -177,7 +177,7 @@ int main(void) {
     BIOS_start();
     IntMasterEnable();
 
-//    while(Task_getMode(connectionManagerTaskHandle) == ti_sysbios_knl_Task_Mode_RUNNING || Task_getMode(connectionManagerTaskHandle) == ti_sysbios_knl_Task_Mode_READY){}
+   while(Task_getMode(conn_mgr_handle) == ti_sysbios_knl_Task_Mode_RUNNING || Task_getMode(conn_mgr_handle) == ti_sysbios_knl_Task_Mode_READY){}
 
     return (0);
 }
