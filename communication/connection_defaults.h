@@ -1,0 +1,7 @@
+#ifndef CONNECTION_DEFAULTS_H
+#define CONNECTION_DEFAULTS_H
+
+#define DEFAULT_SSID   "Noah"
+#define DEFAULT_PASS   "noah2200"
+
+#endif // CONNECTION_DEFAULTS_H

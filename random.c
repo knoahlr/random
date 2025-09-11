@@ -139,20 +139,20 @@ int main(void) {
     conn_mgr_params.arg1 = uart_queue_handle;
     conn_mgr_params.stackSize = CM_TASKSTACKSIZE;
     conn_mgr_params.stack = &task_ConnectionManagerStack;
-    conn_mgr_params.priority = 1;
+    conn_mgr_params.priority = 2;
     conn_mgr_handle = Task_create((Task_FuncPtr)CM_connection_mgr, &conn_mgr_params, NULL);
 
     if (!conn_mgr_handle) {
         printf("Failed to launch connection mgr task");
     }
 
-    /* Construct Task to manage UART connection*/
-    Task_Params_init(&uart_params);
-    uart_params.stackSize = UART_TASKSTACKSIZE;
-    uart_params.stack = &task_UARTStack;
-    uart_params.arg0 = uart_queue_handle;
-    uart_params.priority = 5;
-    uart_handle = Task_create((Task_FuncPtr)uart_messaging_service, &uart_params, NULL);
+    // /* Construct Task to manage UART connection*/
+    // Task_Params_init(&uart_params);
+    // uart_params.stackSize = UART_TASKSTACKSIZE;
+    // uart_params.stack = &task_UARTStack;
+    // uart_params.arg0 = uart_queue_handle;
+    // uart_params.priority = 5;
+    // uart_handle = Task_create((Task_FuncPtr)uart_messaging_service, &uart_params, NULL);
 
     /* Construct serverTask Task thread */
     Task_Params_init(&server_task_params);
@@ -177,7 +177,7 @@ int main(void) {
     BIOS_start();
     IntMasterEnable();
 
-   while(Task_getMode(conn_mgr_handle) == ti_sysbios_knl_Task_Mode_RUNNING || Task_getMode(conn_mgr_handle) == ti_sysbios_knl_Task_Mode_READY){}
+//    while(Task_getMode(conn_mgr_handle) == ti_sysbios_knl_Task_Mode_RUNNING || Task_getMode(conn_mgr_handle) == ti_sysbios_knl_Task_Mode_READY){}w
 
     return (0);
 }
