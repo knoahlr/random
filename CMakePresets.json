@@ -1,0 +1,22 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "arm-gcc",
+      "displayName": "TM4C129 / arm-none-eabi-gcc (Ninja)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "toolchainFile": "${sourceDir}/cmake/toolchain-arm-none-eabi.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "MinSizeRel",
+        "TI_ROOT": "/mnt/c/ti",
+        "TIRTOS_INSTALL": "/mnt/c/ti/tirtos_tivac_2_16_00_08",
+        "TIVAWARE_INSTALL": "/mnt/c/ti/TivaWare_C_Series-2.2.0.295"
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "arm-gcc", "configurePreset": "arm-gcc" }
+  ]
+}
