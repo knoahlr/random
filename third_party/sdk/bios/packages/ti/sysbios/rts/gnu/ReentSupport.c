@@ -62,10 +62,13 @@ Int ReentSupport_Module_startup (Int phase)
      * not have the correct lock structure definitions), a compiler
      * error will be generated.
      */
-    volatile _LOCK_T lock;
-
-    lock.init_done = 1;
-    lock = lock;        /* Suppress unused variable compiler warning */
+    /* LOCAL PATCH (vendored): the original dummy-lock canary below was a
+     * compile-time check that _LOCK_T has an `init_done` member. Modern newlib
+     * (gcc 13.x) makes _LOCK_T opaque, so the canary no longer compiles. It is
+     * non-functional (it only validates header include paths), so we neutralize
+     * it. See docs/regenerating-sysbios-config.md ("toolchain compatibility").
+     *     volatile _LOCK_T lock; lock.init_done = 1; lock = lock;
+     */
 
     return (Startup_DONE);
 }

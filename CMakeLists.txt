@@ -3,74 +3,64 @@ cmake_minimum_required(VERSION 3.20)
 project(random C ASM)
 
 # ---------------------------------------------------------------------------
-# SDK locations. Override on the command line or in CMakePresets.json, e.g.
-#   cmake -B build --preset arm-gcc -DTIRTOS_INSTALL=/mnt/c/ti/tirtos_tivac_2_16_00_08
+# This build is self-contained: all SDK dependencies are vendored under
+# third_party/ (see tools/vendor-sdk.sh). Only the one-time XDC-generated
+# kernel config (generated/) comes from the bootstrap step
+# (see docs/regenerating-sysbios-config.md).
 # ---------------------------------------------------------------------------
-set(TI_ROOT          "/mnt/c/ti"                                  CACHE PATH "TI tools root")
-set(TIRTOS_INSTALL   "${TI_ROOT}/tirtos_tivac_2_16_00_08"         CACHE PATH "TI-RTOS install")
-set(TIVAWARE_INSTALL "${TI_ROOT}/TivaWare_C_Series-2.2.0.295"     CACHE PATH "TivaWare install")
-set(GEN_DIR          "${CMAKE_SOURCE_DIR}/generated"              CACHE PATH "configuro output (run tools/generate-bios-config.sh first)")
 
-if(NOT EXISTS "${GEN_DIR}")
-    message(FATAL_ERROR
-        "Generated BIOS config not found at ${GEN_DIR}.\n"
-        "Run tools/generate-bios-config.sh once before configuring CMake.")
-endif()
+set(TP  ${CMAKE_SOURCE_DIR}/third_party)
+set(SDK ${TP}/sdk)
+set(WIFI ${SDK}/tidrivers/packages/ti/mw/wifi/cc3x00)
+set(GEN_DIR ${CMAKE_SOURCE_DIR}/generated CACHE PATH "XDC configuro output")
 
 # ---------------------------------------------------------------------------
-# Harvest the exact include paths (-I) and defines (-D) configuro emitted.
-# This keeps the app compile consistent with how the BIOS config was built,
-# and is resilient to target-specific xdc_target_* defines.
+# Shared include paths + defines used consistently by the kernel and the app.
 # ---------------------------------------------------------------------------
-set(XDC_INCLUDES "")
-set(XDC_DEFINES  "")
-file(GLOB _compiler_opt "${GEN_DIR}/compiler.opt" "${GEN_DIR}/*/compiler.opt")
-if(_compiler_opt)
-    file(READ "${_compiler_opt}" _opt_contents)
-    separate_arguments(_opt_tokens UNIX_COMMAND "${_opt_contents}")
-    foreach(tok ${_opt_tokens})
-        if(tok MATCHES "^-I(.+)$")
-            list(APPEND XDC_INCLUDES "${CMAKE_MATCH_1}")
-        elseif(tok MATCHES "^-D(.+)$")
-            list(APPEND XDC_DEFINES "${CMAKE_MATCH_1}")
-        endif()
-    endforeach()
-else()
-    message(WARNING "compiler.opt not found under ${GEN_DIR}; falling back to explicit include list")
-endif()
-
-# Explicit package include roots (used if compiler.opt parsing comes up short).
-set(SDK_INCLUDES
-    ${TIRTOS_INSTALL}/packages
-    ${TIRTOS_INSTALL}/products/bios_6_45_01_29/packages
-    ${TIRTOS_INSTALL}/products/tidrivers_tivac_2_16_00_08/packages
-    ${TIRTOS_INSTALL}/products/ndk_2_25_00_09/packages
-    ${TIRTOS_INSTALL}/products/ns_1_11_00_10/packages
-    ${TIRTOS_INSTALL}/products/tidrivers_tivac_2_16_00_08/packages/ti/mw/wifi/cc3x00
-    ${TIRTOS_INSTALL}/products/tidrivers_tivac_2_16_00_08/packages/ti/mw/wifi/cc3x00/simplelink/include
-    ${TIRTOS_INSTALL}/products/tidrivers_tivac_2_16_00_08/packages/ti/mw/wifi/cc3x00/oslib
-    ${TIVAWARE_INSTALL}
-    ${TIVAWARE_INSTALL}/utils
+add_library(sdk_config INTERFACE)
+target_include_directories(sdk_config INTERFACE
+    ${CMAKE_SOURCE_DIR}
+    ${GEN_DIR}
+    ${SDK}/bios/packages
+    ${SDK}/xdc/packages
+    ${SDK}/tidrivers/packages
+    ${WIFI}
+    ${WIFI}/simplelink/include
+    ${WIFI}/oslib
+    ${TP}/tivaware
+)
+target_compile_definitions(sdk_config INTERFACE
+    xdc_target_types__=gnu/targets/arm/std.h
+    xdc_target_name__=M4F
+    PART_TM4C129ENCPDT
+    TIVAWARE
 )
 
 # ---------------------------------------------------------------------------
-# Generated SYS/BIOS configuration source (name carries the target suffix,
-# e.g. random_pm4fg.c for the gnu M4F target). Discover it rather than hardcode.
+# SYS/BIOS kernel, built from source (validates without the bootstrap).
 # ---------------------------------------------------------------------------
-file(GLOB_RECURSE GEN_CFG_SRC "${GEN_DIR}/*/cfg/*.c" "${GEN_DIR}/*.c")
-if(NOT GEN_CFG_SRC)
-    message(FATAL_ERROR "No generated config .c found under ${GEN_DIR}")
-endif()
-
-# Generated GNU linker script.
-file(GLOB_RECURSE GEN_LINKER "${GEN_DIR}/*/cfg/*.cmd" "${GEN_DIR}/linker.cmd" "${GEN_DIR}/*.cmd")
-list(GET GEN_LINKER 0 LINKER_SCRIPT)
-if(NOT LINKER_SCRIPT)
-    message(FATAL_ERROR "No generated linker command file (*.cmd) found under ${GEN_DIR}")
-endif()
+include(cmake/sysbios.cmake)
 
 # ---------------------------------------------------------------------------
-# Application sources.
+# TivaWare driverlib + uartstdio, built from source (prebuilt .lib is TI-format).
+# ---------------------------------------------------------------------------
+file(GLOB TIVAWARE_DRIVERLIB ${TP}/tivaware/driverlib/*.c)
+add_library(tivaware STATIC ${TIVAWARE_DRIVERLIB} ${TP}/tivaware/utils/uartstdio.c)
+target_link_libraries(tivaware PUBLIC sdk_config)
+target_compile_options(tivaware PRIVATE -w)
+
+# ---------------------------------------------------------------------------
+# Prebuilt GNU (.am4fg) SDK libraries: TI drivers, WiFi host driver, RTOS ports.
+# ---------------------------------------------------------------------------
+set(SDK_PREBUILT_LIBS
+    ${SDK}/tidrivers/packages/ti/drivers/lib/drivers_tivaware.am4fg
+    ${SDK}/tidrivers/packages/ti/drivers/lib/drivers_wifi_tivaware.am4fg
+    ${SDK}/tidrivers/packages/ti/drivers/ports/lib/tirtosport.am4fg
+    ${WIFI}/lib/cc3x00_host_driver.am4fg
+)
+
+# ---------------------------------------------------------------------------
+# Application. Requires the one-time XDC-generated config + linker script.
 # ---------------------------------------------------------------------------
 set(APP_SOURCES
     random.c
@@ -85,48 +75,35 @@ set(APP_SOURCES
     uart/uart_interface.c
 )
 
-# TivaWare driverlib + uartstdio compiled from source (prebuilt .lib is TI-format).
-file(GLOB TIVAWARE_DRIVERLIB "${TIVAWARE_INSTALL}/driverlib/*.c")
-set(TIVAWARE_UTILS "${TIVAWARE_INSTALL}/utils/uartstdio.c")
+file(GLOB GEN_CFG_SRC ${GEN_DIR}/package/cfg/random_pm4fg.c ${GEN_DIR}/*.c)
+file(GLOB GEN_LINKER  ${GEN_DIR}/linker.cmd ${GEN_DIR}/package/cfg/*.cmd ${GEN_DIR}/*.cmd)
 
-add_executable(${PROJECT_NAME}.out
-    ${APP_SOURCES}
-    ${GEN_CFG_SRC}
-    ${TIVAWARE_DRIVERLIB}
-    ${TIVAWARE_UTILS}
-)
+if(GEN_CFG_SRC AND GEN_LINKER)
+    list(GET GEN_LINKER 0 LINKER_SCRIPT)
+    add_executable(random.out ${APP_SOURCES} ${GEN_CFG_SRC})
+    target_link_libraries(random.out PRIVATE sdk_config)
+    target_link_libraries(random.out PRIVATE
+        -Wl,--start-group
+        sysbios tivaware ${SDK_PREBUILT_LIBS}
+        -lc -lgcc -lm -lnosys
+        -Wl,--end-group
+    )
+    target_link_options(random.out PRIVATE
+        -T ${LINKER_SCRIPT}
+        -nostartfiles
+        -Wl,-Map=random.map
+        -Wl,--gc-sections
+    )
+    set_target_properties(random.out PROPERTIES LINK_DEPENDS ${LINKER_SCRIPT})
 
-target_include_directories(${PROJECT_NAME}.out PRIVATE
-    ${CMAKE_SOURCE_DIR}
-    ${GEN_DIR}
-    ${XDC_INCLUDES}
-    ${SDK_INCLUDES}
-)
-
-target_compile_definitions(${PROJECT_NAME}.out PRIVATE
-    PART_TM4C129ENCPDT
-    TIVAWARE
-    ${XDC_DEFINES}
-)
-
-# The generated linker script pulls in the prebuilt BIOS/driver/WiFi/NDK libs.
-target_link_options(${PROJECT_NAME}.out PRIVATE
-    -T "${LINKER_SCRIPT}"
-    -nostartfiles            # reset vectors / startup come from the BIOS config
-    -Wl,-Map=${PROJECT_NAME}.map
-    -Wl,--gc-sections
-)
-target_link_libraries(${PROJECT_NAME}.out PRIVATE c gcc m nosys)
-
-# Rebuild if the linker script changes.
-set_target_properties(${PROJECT_NAME}.out PROPERTIES LINK_DEPENDS "${LINKER_SCRIPT}")
-
-# ---------------------------------------------------------------------------
-# Post-build: raw binary + Intel hex + size report.
-# ---------------------------------------------------------------------------
-add_custom_command(TARGET ${PROJECT_NAME}.out POST_BUILD
-    COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:${PROJECT_NAME}.out> ${PROJECT_NAME}.bin
-    COMMAND ${CMAKE_OBJCOPY} -O ihex   $<TARGET_FILE:${PROJECT_NAME}.out> ${PROJECT_NAME}.hex
-    COMMAND ${CMAKE_SIZE} $<TARGET_FILE:${PROJECT_NAME}.out>
-    COMMENT "Generating .bin/.hex and size report"
-)
+    add_custom_command(TARGET random.out POST_BUILD
+        COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:random.out> random.bin
+        COMMAND ${CMAKE_OBJCOPY} -O ihex   $<TARGET_FILE:random.out> random.hex
+        COMMAND ${CMAKE_SIZE} $<TARGET_FILE:random.out>
+        COMMENT "Generating .bin/.hex and size report")
+else()
+    message(WARNING
+        "generated/ kernel config not found -- building libraries only.\n"
+        "Run the one-time bootstrap to produce random_pm4fg.c + linker.cmd "
+        "(see docs/regenerating-sysbios-config.md), then reconfigure.")
+endif()

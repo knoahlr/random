@@ -57,3 +57,6 @@ Debug/*
 
 # configuro output (regenerated via tools/generate-bios-config.sh)
 /generated/
+
+# CMake build dir
+/build/

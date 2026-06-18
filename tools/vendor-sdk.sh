@@ -55,6 +55,7 @@ cp "${TIVAWARE}/utils/uartstdio.c" "${TIVAWARE}/utils/uartstdio.h" "${TP}/tivawa
 # --- SYS/BIOS (compiled from source) + gnu target headers ------------------
 echo ">> SYS/BIOS source + headers (this is the largest tree)"
 copy_ext "${BIOS}/ti/sysbios" "${TP}/sdk/bios/packages/ti/sysbios" h c sv7M asm s
+copy_ext "${BIOS}/ti/catalog" "${TP}/sdk/bios/packages/ti/catalog" h
 copy_ext "${BIOS}/gnu"        "${TP}/sdk/bios/packages/gnu"        h
 # xdc runtime/std headers come from the xdctools packages
 echo ">> xdc.runtime / xdc.std headers"
