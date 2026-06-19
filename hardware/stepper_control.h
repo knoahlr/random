@@ -26,7 +26,7 @@
 #include <driverlib/gpio.h>
 #include <inc/hw_memmap.h>
 #include <inc/hw_gpio.h>
-#include "board.h"
+#include "Board.h"
 
 
 #ifndef STEPPERCONTROL_H_

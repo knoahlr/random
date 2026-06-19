@@ -21,7 +21,7 @@
 #include <driverlib/sysctl.h>
 #include <driverlib/uart.h>
 
-#include "board.h"
+#include "Board.h"
 
 #define UART_BUFFER_LEN 256
 

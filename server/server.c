@@ -14,7 +14,7 @@
 #include <xdc/runtime/System.h>
 #include <ti/sysbios/knl/Semaphore.h>
 #include <ti/sysbios/knl/Mailbox.h>
-#include <ti/sysbios/knl/clock.h>
+#include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/hal/Seconds.h>
 #include "socket.h"
 #include "udp_discovery.h"

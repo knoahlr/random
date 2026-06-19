@@ -16,7 +16,7 @@
 
 #include "Board.h"
 #include <ti/drivers/PWM.h>
-#include <ti/sysbios/knl/clock.h>
+#include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/knl/Mailbox.h>
 
 #include "driverlib/uart.h"
