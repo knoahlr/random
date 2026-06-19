@@ -178,6 +178,7 @@ void EK_TM4C129EXL_initGeneral(void)
 #pragma DATA_SECTION(NIMUDeviceTable, ".data:NIMUDeviceTable")
 #endif
 
+#if defined(BOARD_USE_NDK)  /* wired-Ethernet/NDK path, disabled by default; see docs/adding-ndk.md */
 #include <ti/drivers/EMAC.h>
 #include <ti/drivers/emac/EMACSnow.h>
 
@@ -265,6 +266,7 @@ void EK_TM4C129EXL_initEMAC(void)
     /* Once EMAC_init is called, EMAC_config cannot be changed */
     EMAC_init();
 }
+#endif /* BOARD_USE_NDK */
 
 /*
  *  =============================== GPIO ===============================
