@@ -540,6 +540,7 @@ void EK_TM4C129EXL_initPWM(void)
 #pragma DATA_SECTION(sdspiTivaHWattrs, ".const:sdspiTivaHWattrs")
 #endif
 
+#if defined(BOARD_USE_FATFS)  /* SD-card driver needs FatFs (ti/mw/fatfs); unused here, see docs/adding-ndk.md gotchas */
 #include <ti/drivers/SDSPI.h>
 #include <ti/drivers/sdspi/SDSPITiva.h>
 
@@ -642,6 +643,7 @@ void EK_TM4C129EXL_initSDSPI(void)
 
     SDSPI_init();
 }
+#endif /* BOARD_USE_FATFS */
 
 /*
  *  =============================== SPI ===============================
@@ -882,6 +884,7 @@ void EK_TM4C129EXL_initUSB(EK_TM4C129EXL_USBMode usbMode)
 #pragma DATA_SECTION(usbmschfatfstivaHWAttrs, ".const:usbmschfatfstivaHWAttrs")
 #endif
 
+#if defined(BOARD_USE_FATFS)  /* USB mass-storage + FatFs (ti/mw/fatfs); unused here */
 #include <ti/drivers/USBMSCHFatFs.h>
 #include <ti/drivers/usbmschfatfs/USBMSCHFatFsTiva.h>
 
@@ -915,6 +918,7 @@ void EK_TM4C129EXL_initUSBMSCHFatFs(void)
     EK_TM4C129EXL_initUSB(EK_TM4C129EXL_USBHOST);
     USBMSCHFatFs_init();
 }
+#endif /* BOARD_USE_FATFS */
 
 /*
  *  =============================== Watchdog ===============================
