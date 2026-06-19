@@ -94,8 +94,6 @@ single recursive BIOS `GateMutex`:
 | `__malloc_lock` / `__malloc_unlock` | the heap (`malloc`/`free`/`realloc`) |
 | `__env_lock` / `__env_unlock` | the environment (`getenv`/`setenv`) |
 | `__tz_lock` / `__tz_unlock` | timezone state |
-| `__sfp_lock_acquire` / `__sfp_lock_release` | the stdio `FILE` list |
-| `__sinit_lock_acquire` / `__sinit_lock_release` | one-time stdio init |
 
 Design notes (see the source for detail):
 
@@ -103,6 +101,15 @@ Design notes (see the source for detail):
   object, pulled in only to satisfy an undefined reference. Defining the symbols
   in our object means the linker never pulls newlib's defaults — no
   multiple-definition conflict.
+- **`__sfp_lock_*` / `__sinit_lock_*` are NOT overridden.** Those two are the
+  exception to the override mechanism: newlib keeps them in `findfp.o` *alongside*
+  essential stdio (`__sfp`, `__sinit`, the std streams), which is always linked —
+  so defining our own yields a **multiple-definition link error**, not an
+  override. We accept newlib's defaults (no-ops here). The shared stdio `FILE`
+  list is therefore not gated by a BIOS lock; per-task stdio state is still
+  isolated via `__getreent()`, so only concurrent `fopen`/`fclose` of *different*
+  streams from multiple tasks is unguarded. (This was found at link time, after
+  the initial version tried to override all five classes.)
 - **One coarse gate** for all classes. Simpler than per-class gates; newlib does
   not nest distinct global locks deeply and contention is negligible. `GateMutex`
   is recursive, so same-task re-entry is safe.

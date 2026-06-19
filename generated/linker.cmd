@@ -5,19 +5,13 @@
 __STACK_SIZE = 0x2800;
 __TI_STACK_SIZE = __STACK_SIZE;
 
-INPUT(
-    /home/braize/repo/code/random/generated/package/cfg/random_pm4fg.om4fg
-    /mnt/c/ti/tirtos_tivac_2_16_00_08/products/tidrivers_tivac_2_16_00_08/packages/ti/mw/wifi/cc3x00/lib/cc3x00_host_driver.am4fg
-    /mnt/c/ti/tirtos_tivac_2_16_00_08/products/tidrivers_tivac_2_16_00_08/packages/ti/drivers/lib/drivers_tivaware.am4fg
-    /mnt/c/ti/tirtos_tivac_2_16_00_08/products/tidrivers_tivac_2_16_00_08/packages/ti/drivers/lib/drivers_wifi_tivaware.am4fg
-    /mnt/c/ti/tirtos_tivac_2_16_00_08/products/tidrivers_tivac_2_16_00_08/packages/ti/mw/fatfs/lib/release/ti.mw.fatfs.am4fg
-    /mnt/c/ti/tirtos_tivac_2_16_00_08/products/tidrivers_tivac_2_16_00_08/packages/ti/drivers/ports/lib/tirtosport.am4fg
-    /home/braize/repo/code/random/generated/package/cfg/random_pm4fg.src/sysbios/sysbios.am4fg
-    /mnt/c/ti/tirtos_tivac_2_16_00_08/products/bios_6_45_01_29/packages/ti/catalog/arm/cortexm4/tiva/ce/lib/Boot.am4fg
-    /mnt/c/ti/tirtos_tivac_2_16_00_08/products/bios_6_45_01_29/packages/gnu/targets/arm/rtsv7M/lib/gnu.targets.arm.rtsv7M.am4fg
-    /mnt/c/ti/tirtos_tivac_2_16_00_08/products/bios_6_45_01_29/packages/gnu/targets/arm/rtsv7M/lib/boot.am4fg
-    /mnt/c/ti/tirtos_tivac_2_16_00_08/products/bios_6_45_01_29/packages/gnu/targets/arm/rtsv7M/lib/syscalls.am4fg
-)
+/* LOCAL PATCH (post-generation): the configuro INPUT(...) block was removed.
+ * It pulled the configuro-built random_pm4fg.om4fg + sysbios.am4fg (which
+ * duplicate our from-source random_pm4fg.c.obj + libsysbios.a) and referenced
+ * the other libs by absolute /mnt/c/ti paths. CMake provides all objects and
+ * libraries explicitly from third_party/, keeping the build self-contained.
+ * Re-applied idempotently by tools/generate-bios-config.sh. See
+ * docs/tivac-cmake-migration.md. */
 
 /*
  * symbolic aliases for static instance objects

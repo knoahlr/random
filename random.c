@@ -62,7 +62,9 @@
 #include <hardware/stepper_control.h>
 #include <server/server.h>
 #include "driverlib/interrupt.h"
-#include <time.h>
+/* <time.h> intentionally omitted: it is unused here and pulls newlib's
+ * <sys/select.h>, whose select/fd_set/timeval collide with SimpleLink's BSD
+ * socket layer (SL_INC_STD_BSD_API_NAMING). Time comes from SYS/BIOS Seconds. */
 #include <ti/sysbios/hal/Seconds.h>
 
 /* Local Platform Specific Header file */

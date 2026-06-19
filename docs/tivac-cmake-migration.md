@@ -174,23 +174,45 @@ CMake structure:
 
 ---
 
-## 5. Remaining work (as of this writing)
+## 5. The application link (now complete)
 
-The libraries build cleanly; the final application link is being wired:
+`random.out` links end-to-end and emits `.bin`/`.hex`. The pieces that got it there:
 
-- **Provide the TM4C129 memory map.** `generated/linker.cmd` lacks `MEMORY{}` /
-  `REGION_TEXT`/`REGION_DATA`. Supply a base GNU linker script with
-  FLASH (1 MB @ 0x00000000) + SRAM (256 KB @ 0x20000000) defining those regions,
-  used alongside `linker.cmd`.
-- **Vendor the remaining libs referenced by `linker.cmd` INPUT():**
-  `ti.mw.fatfs`, catalog `Boot.am4fg`, and the gnu RTS trio
-  `gnu.targets.arm.rtsv7M` / `boot` / `syscalls` (these provide `_c_int00` startup
-  and syscall stubs; with them, drop `-lnosys`).
-- **Decide sysbios source vs configuro's archive.** We build `libsysbios.a` from
-  source (the goal); `linker.cmd`'s `INPUT()` line for the configuro-built
-  `sysbios.am4fg` should be dropped in favor of the CMake target.
-- Then remove the legacy CCS files (`.cproject`, `.ccsproject`, `.project`,
-  `makefile.defs`, `src/`, `.config/`, `targetConfigs/`).
+- **Memory map.** `generated/linker.cmd` is only a *fragment* (no `MEMORY{}`;
+  references `REGION_TEXT`/`REGION_DATA`). We added a base GNU script,
+  `linker/tm4c129encpdt.lds` (FLASH 1 MB @ 0x0, SRAM 256 KB @ 0x20000000, REGION
+  aliases, standard sections), adapted from the TI-RTOS GNU example
+  `DK_TM4C129X.lds`. Both are passed with `-Wl,-T,` — **base `.lds` first, then
+  `linker.cmd`** — mirroring TI-RTOS `makedefs`. (Use the comma form so CMake
+  doesn't de-duplicate the repeated `-T`.)
+- **Strip `linker.cmd`'s `INPUT()` block.** It pulled the configuro-built
+  `random_pm4fg.om4fg` + `sysbios.am4fg` (duplicating our from-source objects) and
+  referenced libs by absolute `/mnt/c/ti` paths. We provide everything from
+  `third_party/` via CMake; `generate-bios-config.sh` strips the block
+  idempotently after regeneration.
+- **Vendor + link the gnu RTS set:** `gnu.targets.arm.rtsv7M` (xdc.runtime bodies
+  like `System_*printf_va__F`), `boot` (`_c_int00`), `syscalls`, and the TivaC
+  catalog `Boot` (SysCtl clock init). Added to `SDK_PREBUILT_LIBS` +
+  `tools/vendor-sdk.sh`. (`ti.mw.fatfs` was *not* needed — the SD/USB-FatFs board
+  drivers are guarded out; see `docs/adding-ndk.md`.)
+- **`-Dgcc` for TivaWare.** `cpu.c` selects its inline-asm (`CPUcpsie`/`CPUcpsid`)
+  with the legacy `gcc` macro, not `__GNUC__`; without it `cpu.c` compiles empty.
+- **`-lrdimon` not `-lnosys`.** The BIOS `SemiHostSupport` needs
+  `initialise_monitor_handles` (semihosting). NOTE: semihosting I/O needs a
+  debugger attached — retarget C-library I/O to UART for standalone runs.
+- **`-R .vtable` on the `.bin`.** SYS/BIOS's RAM vector table has an SRAM LMA;
+  without removing it `objcopy -O binary` spans the flash→SRAM gap (~512 MB). The
+  `.out`/`.hex` are unaffected.
+- **Newlib C-library locking** had to be ported to the gcc-13.2 newlib model —
+  see `docs/newlib-locking-port.md`.
+
+### Still open
+- Remove the legacy CCS files (`.cproject`, `.ccsproject`, `.project`,
+  `makefile.defs`, `.config/`, `targetConfigs/`) now that the CMake build is
+  complete. (Note: `src/` now holds `newlib_locks.c`, so keep it.)
+- Decide on C-library I/O retargeting (semihosting vs UART) for standalone boot.
+- ABI watch-item: prebuilt `.am4fg` libs are gcc-4.8.4 vintage vs build gcc 13.2
+  (see §4).
 
 ---
 

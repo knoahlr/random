@@ -21,8 +21,9 @@
  *      __malloc_lock / __malloc_unlock        the heap (malloc/free/realloc)
  *      __env_lock / __env_unlock              the environment (getenv/setenv)
  *      __tz_lock / __tz_unlock                timezone state
- *      __sfp_lock_acquire / __sfp_lock_release    the stdio FILE list
- *      __sinit_lock_acquire / __sinit_lock_release    one-time stdio init
+ *
+ *  (The stdio __sfp_lock_* and __sinit_lock_* hooks are intentionally NOT
+ *  overridden -- see the note above their would-be definitions below.)
  *
  *  Per-thread reentrancy (errno, per-task stdio) is handled separately by
  *  __getreent(), which the generated config still provides.
@@ -105,8 +106,6 @@ static Void leave(IArg key)
 static IArg mallocKey;
 static IArg envKey;
 static IArg tzKey;
-static IArg sfpKey;
-static IArg sinitKey;
 
 /* ---- heap ---- */
 void __malloc_lock(struct _reent *r)   { (void)r; mallocKey = enter(); }
@@ -120,10 +119,14 @@ void __env_unlock(struct _reent *r) { (void)r; leave(envKey); }
 void __tz_lock(void)   { tzKey = enter(); }
 void __tz_unlock(void) { leave(tzKey); }
 
-/* ---- stdio FILE list ---- */
-void __sfp_lock_acquire(void) { sfpKey = enter(); }
-void __sfp_lock_release(void) { leave(sfpKey); }
-
-/* ---- stdio one-time init ---- */
-void __sinit_lock_acquire(void) { sinitKey = enter(); }
-void __sinit_lock_release(void) { leave(sinitKey); }
+/*
+ * NOTE: __sfp_lock_acquire/release and __sinit_lock_acquire/release are NOT
+ * overridden here. Unlike malloc/env/tz (each in its own libc.a object), newlib
+ * keeps those in findfp.o alongside essential stdio (__sfp, __sinit, std
+ * streams), which is always pulled in -- so defining our own causes a
+ * multiple-definition link error rather than an override. We accept newlib's
+ * defaults (no-ops in this non-retargetable build): the shared stdio FILE list
+ * is not gated by a BIOS lock. Per-task stdio state is still isolated via
+ * __getreent(); only concurrent fopen/fclose of *different* streams from
+ * multiple tasks is unguarded. See docs/newlib-locking-port.md.
+ */

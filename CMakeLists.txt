@@ -48,6 +48,9 @@ file(GLOB TIVAWARE_DRIVERLIB ${TP}/tivaware/driverlib/*.c)
 add_library(tivaware STATIC ${TIVAWARE_DRIVERLIB} ${TP}/tivaware/utils/uartstdio.c)
 target_link_libraries(tivaware PUBLIC sdk_config)
 target_compile_options(tivaware PRIVATE -w)
+# TivaWare selects its per-compiler inline-asm (e.g. cpu.c CPUcpsie/CPUcpsid)
+# with the legacy `gcc` macro, not __GNUC__. Without it cpu.c compiles empty.
+target_compile_definitions(tivaware PRIVATE gcc)
 
 # ---------------------------------------------------------------------------
 # Prebuilt GNU (.am4fg) SDK libraries: TI drivers, WiFi host driver, RTOS ports.
@@ -57,6 +60,13 @@ set(SDK_PREBUILT_LIBS
     ${SDK}/tidrivers/packages/ti/drivers/lib/drivers_wifi_tivaware.am4fg
     ${SDK}/tidrivers/packages/ti/drivers/ports/lib/tirtosport.am4fg
     ${WIFI}/lib/cc3x00_host_driver.am4fg
+    # gnu RTS: xdc.runtime bodies (System printf etc.), _c_int00 startup, syscall
+    # stubs, and the TivaC catalog Boot (SysCtl clock init). From the configuro
+    # linker.cmd INPUT() set; we link them here instead of via that fragment.
+    ${SDK}/bios/packages/gnu/targets/arm/rtsv7M/lib/gnu.targets.arm.rtsv7M.am4fg
+    ${SDK}/bios/packages/gnu/targets/arm/rtsv7M/lib/boot.am4fg
+    ${SDK}/bios/packages/gnu/targets/arm/rtsv7M/lib/syscalls.am4fg
+    ${SDK}/bios/packages/ti/catalog/arm/cortexm4/tiva/ce/lib/Boot.am4fg
 )
 
 # ---------------------------------------------------------------------------
@@ -86,19 +96,27 @@ if(GEN_CFG_SRC AND GEN_LINKER)
     target_link_libraries(random.out PRIVATE
         -Wl,--start-group
         sysbios tivaware ${SDK_PREBUILT_LIBS}
-        -lc -lgcc -lm -lnosys
+        -lc -lgcc -lm -lrdimon
         -Wl,--end-group
     )
+    # Base memory map + standard sections first, then the configuro fragment
+    # (.resetVecs/xdc.meta/symbol aliases/ENTRY) -- mirrors TI-RTOS GNU makedefs.
+    set(BASE_LDS ${CMAKE_SOURCE_DIR}/linker/tm4c129encpdt.lds)
+    # Comma form (not "-T x") so CMake does not de-duplicate the repeated -T flag.
     target_link_options(random.out PRIVATE
-        -T ${LINKER_SCRIPT}
+        -Wl,-T,${BASE_LDS}
+        -Wl,-T,${LINKER_SCRIPT}
         -nostartfiles
         -Wl,-Map=random.map
         -Wl,--gc-sections
     )
-    set_target_properties(random.out PROPERTIES LINK_DEPENDS ${LINKER_SCRIPT})
+    set_target_properties(random.out PROPERTIES LINK_DEPENDS "${BASE_LDS};${LINKER_SCRIPT}")
 
+    # -R .vtable: SYS/BIOS's RAM vector table (LMA in SRAM, zero-init, built at
+    # runtime by Hwi_init). Without removing it, -O binary spans the flash->SRAM
+    # gap and emits a ~512 MB file. The .out/.hex are unaffected.
     add_custom_command(TARGET random.out POST_BUILD
-        COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:random.out> random.bin
+        COMMAND ${CMAKE_OBJCOPY} -O binary -R .vtable $<TARGET_FILE:random.out> random.bin
         COMMAND ${CMAKE_OBJCOPY} -O ihex   $<TARGET_FILE:random.out> random.hex
         COMMAND ${CMAKE_SIZE} $<TARGET_FILE:random.out>
         COMMENT "Generating .bin/.hex and size report")

@@ -67,6 +67,17 @@ if [ -f "${GEN_CFG}" ] && ! grep -q 'LOCAL PATCH: obsolete newlib __libc_lock' "
     perl -0777 -i -pe 's{(\nvoid __libc_lock_init\(_LOCK_T \*lock\)\n.*?\n\}\n)(\n/\*\n \* ======== ti\.sysbios\.rts\.gnu\.SemiHostSupport TEMPLATE)}{\n#if 0 /* LOCAL PATCH: obsolete newlib __libc_lock_* glue; see src/newlib_locks.c */$1#endif /* LOCAL PATCH */$2}s' "${GEN_CFG}"
 fi
 
+# The generated linker.cmd is used only for its SECTIONS/symbols (layered on top
+# of linker/tm4c129encpdt.lds). Its INPUT(...) block pulls the configuro-built
+# random_pm4fg.om4fg + sysbios.am4fg (which duplicate our from-source objects)
+# and references libs by absolute /mnt/c/ti paths. CMake provides all objects and
+# libraries from third_party/, so strip the INPUT() block. Idempotent.
+GEN_LNK="${OUT_DIR}/linker.cmd"
+if [ -f "${GEN_LNK}" ] && grep -q '^INPUT(' "${GEN_LNK}"; then
+    echo ">> Stripping INPUT() block from generated linker.cmd (idempotent)"
+    perl -0777 -i -pe 's{\nINPUT\(\n.*?\n\)\n}{\n/* LOCAL PATCH (post-generation): configuro INPUT() block removed; CMake\n * provides all objects/libraries from third_party/. See docs/. */\n}s' "${GEN_LNK}"
+fi
+
 echo ">> Done. Generated config is in: ${OUT_DIR}"
 echo "   Key outputs: random_pm4fg.c (kernel config) and the linker command file."
 echo "   Commit those; XDCtools is no longer needed to build."

@@ -69,6 +69,10 @@ echo ">> prebuilt GNU (.am4fg) libraries"
 copy_ext "${TIDRIVERS}/ti/drivers/lib"       "${TP}/sdk/tidrivers/packages/ti/drivers/lib"       am4fg
 copy_ext "${TIDRIVERS}/ti/drivers/ports/lib" "${TP}/sdk/tidrivers/packages/ti/drivers/ports/lib" am4fg
 copy_ext "${TIDRIVERS}/${WIFI}/lib"          "${TP}/sdk/tidrivers/packages/${WIFI}/lib"          am4fg
+# gnu RTS (xdc.runtime bodies, _c_int00 boot, syscall stubs) + TivaC catalog Boot
+# (SysCtl clock init). Linked from third_party/ instead of the configuro INPUT().
+copy_ext "${BIOS}/gnu/targets/arm/rtsv7M/lib"              "${TP}/sdk/bios/packages/gnu/targets/arm/rtsv7M/lib"              am4fg
+copy_ext "${BIOS}/ti/catalog/arm/cortexm4/tiva/ce/lib"    "${TP}/sdk/bios/packages/ti/catalog/arm/cortexm4/tiva/ce/lib"    am4fg
 
 echo ">> Done."
 du -sh "${TP}"/* 2>/dev/null || true
