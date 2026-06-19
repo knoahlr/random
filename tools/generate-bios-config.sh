@@ -57,6 +57,16 @@ mkdir -p "${OUT_DIR}"
     -o "${OUT_DIR}" \
     "${CFG}"
 
+# The gnu RTS template emits obsolete __libc_lock_* glue (pre-newlib-3.0, struct
+# _LOCK_T) that does not compile against modern newlib. Disable that block; the
+# reent-model hooks newlib actually calls live in src/newlib_locks.c. Idempotent.
+# See docs/newlib-locking-port.md.
+GEN_CFG="${OUT_DIR}/package/cfg/random_pm4fg.c"
+if [ -f "${GEN_CFG}" ] && ! grep -q 'LOCAL PATCH: obsolete newlib __libc_lock' "${GEN_CFG}"; then
+    echo ">> Disabling obsolete __libc_lock_* block in generated config (idempotent)"
+    perl -0777 -i -pe 's{(\nvoid __libc_lock_init\(_LOCK_T \*lock\)\n.*?\n\}\n)(\n/\*\n \* ======== ti\.sysbios\.rts\.gnu\.SemiHostSupport TEMPLATE)}{\n#if 0 /* LOCAL PATCH: obsolete newlib __libc_lock_* glue; see src/newlib_locks.c */$1#endif /* LOCAL PATCH */$2}s' "${GEN_CFG}"
+fi
+
 echo ">> Done. Generated config is in: ${OUT_DIR}"
 echo "   Key outputs: random_pm4fg.c (kernel config) and the linker command file."
 echo "   Commit those; XDCtools is no longer needed to build."

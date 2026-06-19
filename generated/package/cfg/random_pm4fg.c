@@ -2363,6 +2363,15 @@ struct _reent* __getreent()
     }
 }
 
+/* LOCAL PATCH (post-generation): the SYS/BIOS gnu RTS template below emits the
+ * pre-newlib-3.0 `__libc_lock_*` retargeting against a struct `_LOCK_T`. The
+ * newlib in arm-none-eabi-gcc 13.2 no longer uses that API (it is built with
+ * _RETARGETABLE_LOCKING off, so `_LOCK_T` is `int` and these hooks are never
+ * called). The block is dead code here and only breaks compilation, so it is
+ * disabled. Real C-library task-safety is provided by the reent-model hooks in
+ * src/newlib_locks.c. See docs/newlib-locking-port.md. This same edit is applied
+ * idempotently by tools/generate-bios-config.sh after any regeneration. */
+#if 0
 /*
  *  ======== __libc_lock_init ========
  */
@@ -2637,6 +2646,7 @@ void __libc_lock_close_recursive(_LOCK_RECURSIVE_T *lock)
     lock->owner = NULL;
     lock->count = 0;
 }
+#endif /* LOCAL PATCH: disabled obsolete __libc_lock_* glue (see src/newlib_locks.c) */
 
 /*
  * ======== ti.sysbios.rts.gnu.SemiHostSupport TEMPLATE ========

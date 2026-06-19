@@ -73,6 +73,7 @@ set(APP_SOURCES
     hardware/dc_motor_control.c
     hardware/stepper_control.c
     uart/uart_interface.c
+    src/newlib_locks.c   # C-library lock retargeting for gcc 13.2 newlib (see docs/newlib-locking-port.md)
 )
 
 file(GLOB GEN_CFG_SRC ${GEN_DIR}/package/cfg/random_pm4fg.c ${GEN_DIR}/*.c)
