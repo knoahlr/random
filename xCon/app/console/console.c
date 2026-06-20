@@ -178,8 +178,10 @@ void console_before_async_output(void)
 
 void console_after_async_output(void)
 {
-    if (!prompt_visible) {
-        console_prompt();
-        console_write(console_input, console_input_len);
+    if (prompt_visible) {
+        console_puts("\r\n");
     }
+
+    console_prompt();
+    console_write(console_input, console_input_len);
 }
