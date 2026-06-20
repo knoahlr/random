@@ -37,6 +37,10 @@ target_compile_definitions(sdk_config INTERFACE
     xdc_target_name__=M4F
     PART_TM4C129ENCPDT
     TIVAWARE
+    # Build TivaWare uartstdio interrupt-driven (TX/RX ring buffers) instead of
+    # polled/blocking. The UART0 ISR (UARTStdioIntHandler) is hooked to a Hwi in
+    # EK_TM4C129EXL_initUART(); see docs/uart-console-retarget.md.
+    UART_BUFFERED
 )
 
 # ---------------------------------------------------------------------------

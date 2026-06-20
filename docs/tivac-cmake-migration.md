@@ -15,6 +15,8 @@ Related docs:
   (printf/malloc) on UART0 instead of semihosting.
 - [flashing-and-console.md](flashing-and-console.md) — flashing with `lm4flash`
   and viewing UART prints, from Windows PowerShell or WSL.
+- [wsl_flashing.md](wsl_flashing.md) — sharing the ICDI USB device with
+  `usbipd-win` and attaching it to WSL.
 - [adding-ndk.md](adding-ndk.md) — adding the wired TCP/IP stack later.
 
 ---

@@ -40,7 +40,6 @@
 #include <ti/sysbios/knl/Task.h>
 #include <ti/sysbios/knl/Semaphore.h>
 #include <ti/sysbios/knl/Mailbox.h>
-#include <ti/sysbios/knl/Queue.h>
 
 /* TI-RTOS Header files */
 #include <ti/drivers/GPIO.h>
@@ -51,6 +50,7 @@
 #include <hardware/dc_motor_control.h>
 #include <comms/connection_manager.h>
 #include <comms/server.h>
+#include <comms/uart_interface.h>
 /* <time.h> intentionally omitted: it is unused here and pulls newlib's
  * <sys/select.h>, whose select/fd_set/timeval collide with SimpleLink's BSD
  * socket layer (SL_INC_STD_BSD_API_NAMING). Time comes from SYS/BIOS Seconds. */
@@ -61,15 +61,18 @@
 #define CM_TASKSTACKSIZE     8192
 #define DEFAULT_SERVER_TASKSTACKSIZE   8192
 #define MOTOR_DUTY_TASKSTACKSIZE   2048
+#define UART_LOG_TASKSTACKSIZE   1024
 
 #define STARTTIME 1718248069 //12/06/24
 
 
 static Task_Struct task_motor_control_struct;
+static Task_Struct task_uart_log_struct;
 
 static Char server_stack[DEFAULT_SERVER_TASKSTACKSIZE];
 static Char task_connection_manager_stack[CM_TASKSTACKSIZE];
 static Char task_motor_duty_stack[MOTOR_DUTY_TASKSTACKSIZE];
+static Char task_uart_log_stack[UART_LOG_TASKSTACKSIZE];
 
 
 /*
@@ -81,16 +84,19 @@ int main(void) {
     Task_Params conn_mgr_params;
     Task_Params server_task_params;
     Task_Params motor_control_params;
+    Task_Params uart_log_params;
     Task_Handle conn_mgr_handle;
     Task_Handle server_handle;
 
     Semaphore_Handle semaphore_handle = Semaphore_create(0, NULL, NULL);
     Mailbox_Handle mailbox_handle = Mailbox_create(sizeof(Gamepad), 10, NULL, NULL);
-    Queue_Handle uart_queue_handle = Queue_create(NULL, NULL);
 
-    if (!semaphore_handle || !mailbox_handle || !uart_queue_handle) {
+    if (!semaphore_handle || !mailbox_handle) {
         System_abort("Failed to create RTOS synchronization objects");
     }
+
+    /* Console log queue must exist before any task posts to it. */
+    uart_log_init();
 
     Board_initGeneral();
     Board_initGPIO();
@@ -99,6 +105,13 @@ int main(void) {
     Board_initUART();
 
     Seconds_set(STARTTIME);
+
+    /* Console log consumer: owns UART0, drains the log queue to the wire. */
+    Task_Params_init(&uart_log_params);
+    uart_log_params.stackSize = UART_LOG_TASKSTACKSIZE;
+    uart_log_params.stack = task_uart_log_stack;
+    uart_log_params.priority = 3;
+    Task_construct(&task_uart_log_struct, (Task_FuncPtr)uart_messaging_service, &uart_log_params, NULL);
 
     /* Motor control task. */
     Task_Params_init(&motor_control_params);
@@ -114,7 +127,6 @@ int main(void) {
     /* WiFi connection manager starts when BIOS starts; server waits on its semaphore. */
     Task_Params_init(&conn_mgr_params);
     conn_mgr_params.arg0 = (UArg)semaphore_handle;
-    conn_mgr_params.arg1 = (UArg)uart_queue_handle;
     conn_mgr_params.stackSize = CM_TASKSTACKSIZE;
     conn_mgr_params.stack = task_connection_manager_stack;
     conn_mgr_params.priority = 2;

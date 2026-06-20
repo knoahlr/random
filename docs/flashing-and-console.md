@@ -63,9 +63,10 @@ driver isn't installed or another tool (CCS/LM Flash Programmer) holds the probe
 ```
 
 > WSL note: WSL2 has no native USB. Either run the flasher on the **Windows** side
-> (build `.bin` in WSL, it's visible at `/mnt/c/...` / from PowerShell), or bind
-> the ICDI into WSL with **`usbipd-win`** (`usbipd attach --busid <id> --wsl`),
-> after which Linux `lm4flash` / OpenOCD and `/dev/ttyACM0` work.
+> (build `.bin` in WSL, it's visible at `/mnt/c/...` / from PowerShell), or share
+> and attach the ICDI into WSL with **`usbipd-win`**. See
+> [wsl_flashing.md](wsl_flashing.md) for the required `usbipd bind` and
+> `usbipd attach --wsl` sequence.
 
 ---
 

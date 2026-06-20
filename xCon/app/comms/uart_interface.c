@@ -3,74 +3,76 @@
  *
  *  Created on: Mar 2, 2023
  *      Author: Noah Workstation
+ *
+ * Console logging is decoupled: any task formats a line with uart_log() which
+ * enqueues it (non-blocking) onto a SYS/BIOS Mailbox; a single consumer task
+ * (uart_messaging_service) owns UART0 and drains the queue with UARTwrite. This
+ * serializes output from the concurrent producer tasks (no interleaved lines)
+ * and keeps producers off the wire. uartstdio is built UART_BUFFERED, so the
+ * consumer's UARTwrite is itself non-blocking (writes to the TX ring buffer).
+ *
+ * UART0 itself is brought up at boot in EK_TM4C129EXL_initUART(); see
+ * docs/uart-console-retarget.md.
  */
 
-
 #include <stdint.h>
-#include <stdbool.h>
-#include <stdlib.h>
+#include <stdarg.h>
 #include <stdio.h>
-#include <string.h>
 
 #include <comms/uart_interface.h>
 
-#include "inc/hw_ints.h"
-#include "inc/hw_memmap.h"
-
-#include <driverlib/gpio.h>
-#include <driverlib/interrupt.h>
-#include <driverlib/sysctl.h>
-#include <driverlib/uart.h>
+#include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Mailbox.h>
 
 #include "Board.h"
 
-#define UART_BUFFER_LEN 256
+/* Depth of the console log queue (messages buffered before drops begin). */
+#define UART_LOG_QUEUE_DEPTH 16
 
-/*
- * System clock the catalog Boot module establishes at reset (120 MHz). Matches
- * EK_TM4C129EXL_SYSTEM_CLOCK in the board file; UARTStdioConfig needs it to set
- * the baud divisor.
- */
-#define UART_SYSTEM_CLOCK 120000000U
+typedef struct {
+    uint16_t len;
+    char     data[UART_LOG_MSG_LEN];
+} uart_log_msg;
 
-static bool    uart_configured = false;
-static uint8_t uart_rx_buffer[UART_BUFFER_LEN];
+static Mailbox_Struct  uart_log_mbox_struct;
+static Mailbox_Handle  uart_log_mbox;
 
-/*
- * UART0 is already brought up at boot by EK_TM4C129EXL_initUART(). This remains
- * as an idempotent guard for callers that may run before board init; the system
- * clock is owned by the catalog Boot module, so we only (re)configure stdio.
- */
-void configure_uart_interface(uint8_t uart_port){
-    if (uart_configured) {
-        return;
-    }
-    UARTStdioConfig((uint32_t)uart_port, 115200, UART_SYSTEM_CLOCK);
-    uart_configured = true;
+void uart_log_init(void){
+    Mailbox_Params params;
+    Mailbox_Params_init(&params);
+    Mailbox_construct(&uart_log_mbox_struct, sizeof(uart_log_msg),
+                      UART_LOG_QUEUE_DEPTH, &params, NULL);
+    uart_log_mbox = Mailbox_handle(&uart_log_mbox_struct);
 }
 
-// Continuously drains the uart_queue, transmitting any queued log records.
+void uart_log(const char *fmt, ...){
+    if (uart_log_mbox == NULL) {
+        return; // uart_log_init() not called yet
+    }
+
+    uart_log_msg msg;
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(msg.data, sizeof(msg.data), fmt, ap);
+    va_end(ap);
+
+    if (n <= 0) {
+        return;
+    }
+    msg.len = (n >= (int)sizeof(msg.data)) ? (uint16_t)(sizeof(msg.data) - 1)
+                                           : (uint16_t)n;
+
+    /* Non-blocking: drop the line rather than stall the producer if the queue is full. */
+    Mailbox_post(uart_log_mbox, &msg, BIOS_NO_WAIT);
+}
+
 void uart_messaging_service(UArg arg0){
-
-    struct log_uart *uart_rec;
-    const uint8_t shell_prompt_str[] = "uart0:~$ ";
-    Queue_Handle uart_queue_handle = (Queue_Handle)arg0;
-
-    configure_uart_interface(0);
+    (void)arg0;
+    uart_log_msg msg;
 
     for(;;) {
-        uint32_t bytes_recv = UARTgets((char *)uart_rx_buffer, UART_BUFFER_LEN);
-        if(bytes_recv < 3){
-            UARTwrite(shell_prompt_str, strlen((const char *)shell_prompt_str));
+        if (Mailbox_pend(uart_log_mbox, &msg, BIOS_WAIT_FOREVER)) {
+            UARTwrite(msg.data, msg.len);
         }
-        if(!Queue_empty(uart_queue_handle)){
-            // loop through queue and send chars to UART.
-            uart_rec = (struct log_uart *)Queue_dequeue(uart_queue_handle);
-            if(uart_rec != NULL){
-                UARTprintf(uart_rec->data);
-                free(uart_rec);
-            }
-        }
-        Task_sleep(100);
     }
 }

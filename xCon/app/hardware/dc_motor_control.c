@@ -15,7 +15,7 @@ static PWM_Handle pwm3;
 static Mailbox_Handle mail;
 
 void log_gamepad_input(Gamepad *gamepad_state){
-    UARTprintf("\nGamepad State:\n"
+    uart_log("\nGamepad State:\n"
             "\n\tLeft Trigger:%d"
             "\n\tRight Trigger:%d"
             "\n\tLeft Analog  (x, y):%d, %d"
@@ -46,15 +46,15 @@ void pwm_motor_proc_init(UArg arg0, UArg arg1)
     params.dutyMode = PWM_DUTY_TIME;
     pwm1 = PWM_open(Board_PWM6, &params);
     if (pwm1 == NULL)
-        UARTprintf("Board_PWM6 did not open");
+        uart_log("Board_PWM6 did not open");
 
     pwm2 = PWM_open(Board_PWM5, &params);
     if (pwm2 == NULL)
-        UARTprintf("Board_PWM5 did not open");
+        uart_log("Board_PWM5 did not open");
 
     pwm3 = PWM_open(Board_PWM7, &params);
     if (pwm3 == NULL)
-        UARTprintf("Board_PWM7 did not open");
+        uart_log("Board_PWM7 did not open");
 
     PWM_setDuty(pwm1, duty);
     PWM_setDuty(pwm2, duty);

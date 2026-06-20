@@ -5,27 +5,41 @@
  *      Author: Noah Workstation
  */
 
-#include <ti/sysbios/knl/Queue.h>
+#include <stdbool.h>
+
 #include <ti/sysbios/knl/Task.h>
-#include <osi.h>
 
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 
+/* uartstdio is built with UART_BUFFERED; its buffered-only prototypes use bool,
+ * so stdbool.h must precede this include. */
 #include <utils/uartstdio.h>
 
 #ifndef UART_IF_HEADER_FILE_H
 #define UART_IF_HEADER_FILE_H
-#define MAX_UART_RECORD 256
 
-struct log_uart{
-    Queue_Elem elem;
-    char data[MAX_UART_RECORD];
-    uint8_t len;
-};
+/* Maximum length of a single formatted log line (longer lines are truncated). */
+#define UART_LOG_MSG_LEN 256
 
-void configure_uart_interface(uint8_t uart_port);
+/*
+ * Initialize the console log queue. Must be called once (before BIOS_start, in
+ * main) so producers can post before the consumer task runs.
+ */
+void uart_log_init(void);
 
+/*
+ * printf-style, non-blocking console logging. Formats the line and posts it to
+ * the log queue; the message is dropped if the queue is full. Safe to call from
+ * any task context. The actual UART writes happen on the single consumer task
+ * (uart_messaging_service), so concurrent producers never interleave on the wire.
+ */
+void uart_log(const char *fmt, ...);
+
+/*
+ * Console log consumer task: owns UART0, draining the log queue to the wire.
+ * Run exactly one instance (started from main).
+ */
 void uart_messaging_service(UArg arg0);
 
 #endif

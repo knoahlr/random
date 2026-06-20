@@ -44,7 +44,7 @@ bool is_conn_active(int client_fd){
     uint8_t ping_message[] = "stormblessed";
     int bytes_sent = send(client_fd, ping_message, strlen((char*)ping_message), 0);
     conn_active = (bytes_sent > 0);
-    UARTprintf("Connection Status:%s\n", conn_active ? "Active" : "Not Active");
+    uart_log("Connection Status:%s\n", conn_active ? "Active" : "Not Active");
     return conn_active;
 }
 
@@ -61,7 +61,7 @@ void tcp_message_handler(int server, Mailbox_Handle mail) {
 
   int listen_rc = listen(server, 0);
   if (listen_rc < 0) {
-    UARTprintf("Error: listen failed.\n");
+    uart_log("Error: listen failed.\n");
     return;
   }
 
@@ -90,14 +90,14 @@ void tcp_message_handler(int server, Mailbox_Handle mail) {
             if(command_frame_parse_rc) {
                 bool rc = Mailbox_post(mail, &gamepad_state, MAILBOX_TIMEOUT);
                 if(!rc) {
-                    UARTprintf("Error: Unable to post gamepad state to mailbox.\n");
+                    uart_log("Error: Unable to post gamepad state to mailbox.\n");
                 }
             }
 
             bytes_sent = send(client_fd, gamepad_state.status, sizeof(gamepad_state.status), 0);
 
             if (bytes_sent < 0) {
-              UARTprintf("Error: send failed.\n");
+              uart_log("Error: send failed.\n");
               close(client_fd);
               client_fd = -1;
               break;
@@ -175,7 +175,7 @@ void server_task(UArg arg0, UArg arg1)
                     if(command_frame_parse_rc) {
                         bool rc = Mailbox_post(mail, &gamepad_state, MAILBOX_TIMEOUT);
                         if(!rc) {
-                            UARTprintf("Error: Unable to post gamepad state to mailbox.\n");
+                            uart_log("Error: Unable to post gamepad state to mailbox.\n");
                         }
                     }
                     send(client_fd, gamepad_state.status, sizeof(gamepad_state.status), 0);

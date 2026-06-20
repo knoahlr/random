@@ -834,11 +834,29 @@ void EK_TM4C129EXL_initUART(void)
     UART_init();
 
     /*
+     * uartstdio is built with UART_BUFFERED (interrupt-driven TX/RX ring
+     * buffers), so its ISR must service the UART0 interrupt. UARTStdioConfig
+     * enables the NVIC line (MAP_IntEnable) but never registers a handler; under
+     * SYS/BIOS the vector table is owned by Hwi, so we create a Hwi that
+     * dispatches INT_UART0 to UARTStdioIntHandler. This must exist before
+     * UARTStdioConfig enables the interrupt.
+     */
+    extern void UARTStdioIntHandler(void);
+    Error_Block eb;
+    Hwi_Params  hwiParams;
+    Error_init(&eb);
+    Hwi_Params_init(&hwiParams);
+    Hwi_create(INT_UART0, (Hwi_FuncPtr)UARTStdioIntHandler, &hwiParams, &eb);
+    if (Error_check(&eb)) {
+        System_abort("Failed to create UART0 console Hwi");
+    }
+
+    /*
      * Bring up UART0 (the ICDI virtual COM port) as the console at boot, so the
-     * earliest UARTprintf()/printf() output reaches the wire. UARTStdioConfig
-     * enables the UART0 peripheral and sets it running; the GPIO pin mux above
-     * is the only part it leaves to us. Without this, the UARTEN gate in
-     * syscalls_uart.c drops every console write until something configures UART0.
+     * earliest UARTprintf() output reaches the wire. UARTStdioConfig enables the
+     * UART0 peripheral and sets it running; the GPIO pin mux above is the only
+     * part it leaves to us. Without this, the UARTEN gate in syscalls_uart.c
+     * drops every console write until something configures UART0.
      */
     UARTStdioConfig(0, 115200, EK_TM4C129EXL_SYSTEM_CLOCK);
 }

@@ -65,13 +65,34 @@ catalog Boot module already established at reset
 gate in `_write` is satisfied from the first console write, so both `UARTprintf`
 and C-library `printf` reach the wire from early init onward.
 
-`configure_uart_interface()` in `uart_interface.c` remains only as an idempotent
-guard (skips when already configured) for code paths that might run standalone;
-it no longer sets the system clock, which the Boot module owns.
+## Interrupt-driven uartstdio + a single-owner log queue
 
-> Console logging is consolidated on **`UARTprintf`** (the lighter TivaWare
-> uartstdio path). The semihosting→UART0 `printf` retarget stays as a safety net,
-> but app code logs via `UARTprintf` so each line is emitted once, not twice.
+`uartstdio` is built with **`UART_BUFFERED`** (set in `sdk_config` in the root
+`CMakeLists.txt`), so `UARTwrite`/`UARTprintf` push into a TX ring buffer and
+return immediately instead of busy-waiting on the TX FIFO, and RX is collected
+into a ring buffer by an ISR. That ISR (`UARTStdioIntHandler`) must service the
+UART0 interrupt; `UARTStdioConfig` enables the NVIC line but never registers a
+handler, and under SYS/BIOS the vector table is owned by Hwi. So
+`EK_TM4C129EXL_initUART()` creates a Hwi dispatching `INT_UART0` →
+`UARTStdioIntHandler` **before** calling `UARTStdioConfig`. (UART0 is otherwise
+unclaimed: the TI-RTOS `UARTTiva` driver only grabs `INT_UART0` on `UART_open`,
+which this app never calls for UART0.)
+
+Console logging is **decoupled** in `uart_interface.c`. Producers in any task
+call `uart_log(fmt, ...)`, which `vsnprintf`s the line and posts it to a SYS/BIOS
+**Mailbox** (`uart_log_init()` constructs it in `main` before `BIOS_start`). A
+single consumer task — `uart_messaging_service`, started in `main` — owns UART0
+and drains the queue with `UARTwrite`. This:
+
+- **serializes** output, so the concurrent producer tasks (connection manager,
+  server, motor control, SimpleLink event callbacks) never interleave a line;
+- keeps producers **off the wire** — `uart_log` posts with `BIOS_NO_WAIT` and
+  drops the line if the queue is full rather than blocking the caller;
+- pairs with `UART_BUFFERED` so even the consumer's `UARTwrite` is non-blocking.
+
+The earlier direct `UARTprintf` calls (a workaround from when semihosting stalled
+the CPU and `UARTprintf` appeared dead) are all routed through `uart_log` now.
+The semihosting→UART0 `printf` retarget stays as a safety net.
 
 ## Optional follow-up (needs config regeneration)
 
