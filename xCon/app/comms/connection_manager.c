@@ -14,22 +14,19 @@
 #define SPI_BIT_RATE    14000000
 #endif
 
-const static bool erase_network_list = true;
+/* SimpleLink stores up to 7 WLAN profiles (indices 0..6). */
+#define CM_MAX_PROFILES 7
 
 const static char default_hostname[] = APP_DEFAULT_WIFI_SSID;
 const static char default_pass[] = APP_DEFAULT_WIFI_PASS;
 
-static uint8_t ap_mac_addr[SL_MAC_ADDR_LEN];
 static uint8_t device_mac_address[SL_MAC_ADDR_LEN];
 static uint8_t device_mac_address_len = SL_MAC_ADDR_LEN;
 static struct configured_profiles saved_profiles;
 
 static bool connected = false;
 
-bool device_connected = false;
-bool ip_acquired = false;
-bool smart_config_flag = false;
-
+/* Live connection state, maintained by the async WLAN/NetApp event handlers. */
 static struct connection_status connection_state;
 
 
@@ -153,17 +150,23 @@ void cm_configure_wifi_parameters(void) {
         }
     }
 
-    sl_WlanDisconnect();
-
-    /* Set auto connect policy */
+    /*
+     * Auto-connect policy: the NWP automatically connects to the highest-priority
+     * stored profile and reconnects after drops/reboots. This is THE mechanism
+     * for connecting to stored profiles -- their keys live on the NWP and cannot
+     * be read back (sl_WlanProfileGet deliberately omits the key), so a manual
+     * sl_WlanConnect to a loaded profile is not possible.
+     */
     response = sl_WlanPolicySet(SL_POLICY_CONNECTION,
-            SL_CONNECTION_POLICY(1, 0, 0, 1, 0), NULL, 0);
+            SL_CONNECTION_POLICY(1, 0, 0, 0, 0), NULL, 0);
+    uart_log("[wifi] auto-connect policy RC=%d\n", response);
     if (response < 0) {
         uart_log_fatal("[wifi] FATAL: sl_WlanPolicySet failed\n");
         System_abort("Failed to set connection policy to auto");
     }
 
     /* Enable DHCP client */
+    uart_log("[wifi] enabling DHCP client...\n");
     param = 1;
     response = sl_NetCfgSet(SL_IPV4_STA_P2P_CL_DHCP_ENABLE, 1, 1, &param);
     if(response < 0) {
@@ -171,42 +174,10 @@ void cm_configure_wifi_parameters(void) {
         System_abort("Could not enable DHCP client");
     }
     uart_log("[wifi] station mode + DHCP client configured\n");
-
-    /* Set connection variables to initial values */
-    device_connected = false;
-    ip_acquired = false;
 }
 
 
 //############################ End of SimpleLink Asynchronous Event Handlers #################################################
-
-Sl_WlanNetworkEntry_t cm_read_accesspoint_bssid(_u8* host_name, _u8* ap_mac_address)
-{
-    Sl_WlanNetworkEntry_t network_entries[20];
-    _i8 valid_network_count = sl_WlanGetNetworkList(0, 20, &network_entries[0]);
-    _i8 ssid_index = 0;
-    _i8 ssid_count = 0;
-
-    // extract hidden access point bssid and save into ap_mac_address
-    for(;; ssid_index++)
-    {
-        if(strcmp((char *)host_name, (char *)network_entries[ssid_index].ssid) == 0)
-        {
-            memcpy(ap_mac_address, &network_entries[ssid_index].bssid, sizeof(network_entries[ssid_index].bssid));
-            break;
-        }
-
-        ssid_count = valid_network_count - ssid_index - 1;
-        if( ssid_count == 0 || valid_network_count == -1)
-        {
-             Task_sleep(1000);
-             memset(&network_entries[0], 0, sizeof(network_entries)); // clear WiFi network entries.
-             valid_network_count = sl_WlanGetNetworkList(0, 20, &network_entries[0]);
-             ssid_index = -1;
-        }
-    }
-    return network_entries[ssid_index];
-}
 
 void cm_remove_all_connection_profiles(void){
 
@@ -240,19 +211,21 @@ void cm_print_configured_profiles(void){
 
 uint8_t cm_load_saved_profiles(void){
 
-   uint8_t profile_index = 0;
-   while(1){
-       int16_t ret = sl_WlanProfileGet(profile_index, saved_profiles.profile_entries[saved_profiles.config_net_count].hostname,
-                                       &saved_profiles.profile_entries[saved_profiles.config_net_count].host_name_len,
-                                       saved_profiles.profile_entries[saved_profiles.config_net_count].mac_address,
-                                       &saved_profiles.profile_entries[saved_profiles.config_net_count].sec_params,
-                                       &saved_profiles.profile_entries[saved_profiles.config_net_count].sec_ext_params,
-                                       &saved_profiles.profile_entries[saved_profiles.config_net_count].priority);
-       if(ret < 0){
-           break;
-       } else {
-           saved_profiles.config_net_count += 1;
-           profile_index += 1;
+   /* SimpleLink stores up to CM_MAX_PROFILES (indices 0..6). Compact the valid
+    * entries; sl_WlanProfileGet returns the SSID/MAC/sec-type/priority but NOT
+    * the key. Idempotent: resets the count so it can be called repeatedly. */
+   saved_profiles.config_net_count = 0;
+
+   for (int16_t idx = 0; idx < CM_MAX_PROFILES; idx++){
+       uint8_t i = saved_profiles.config_net_count;
+       int16_t ret = sl_WlanProfileGet(idx, saved_profiles.profile_entries[i].hostname,
+                                       &saved_profiles.profile_entries[i].host_name_len,
+                                       saved_profiles.profile_entries[i].mac_address,
+                                       &saved_profiles.profile_entries[i].sec_params,
+                                       &saved_profiles.profile_entries[i].sec_ext_params,
+                                       &saved_profiles.profile_entries[i].priority);
+       if(ret >= 0){
+           saved_profiles.config_net_count++;
        }
    }
    return saved_profiles.config_net_count;
@@ -302,63 +275,64 @@ void cm_connection_mgr(UArg arg0, UArg arg1){
     uart_log("[wifi] configured; reading MAC...\n");
 
     sl_NetCfgGet(SL_MAC_ADDRESS_GET, NULL, &device_mac_address_len, (_u8 *)device_mac_address);
-
-    // print the device MAC address as a single line
     uart_log("MAC Address-%02x:%02x:%02x:%02x:%02x:%02x\n",
              device_mac_address[0], device_mac_address[1], device_mac_address[2],
              device_mac_address[3], device_mac_address[4], device_mac_address[5]);
 
-    struct wlan_profile_info default_profile = { 0 };
-    memcpy(default_profile.hostname, &default_hostname[0], strlen(default_hostname));
-    memcpy(default_profile.password, &default_pass[0], strlen(default_pass));
-    default_profile.sec_params.Key = &default_profile.password[0];
-    default_profile.host_name_len = strlen(default_hostname);
-    default_profile.pass_len = strlen(default_pass);
-    default_profile.priority = 5;
-    default_profile.sec_params.Type = SL_SEC_TYPE_WPA_WPA2;
-    default_profile.sec_params.KeyLen = default_profile.pass_len;
+    /*
+     * Load profiles already stored on the NWP (they persist across reboots). If
+     * none are configured, add the compiled-in default and reload. We do NOT
+     * wipe profiles on boot -- the console will manage them (add/select/delete).
+     */
+    uint8_t profile_count = cm_load_saved_profiles();
+    uart_log("[wifi] %d stored profile(s)\n", profile_count);
 
-    if(erase_network_list)
-        cm_remove_all_connection_profiles();
+    if (profile_count == 0) {
+        struct wlan_profile_info default_profile = { 0 };
+        memcpy(default_profile.hostname, &default_hostname[0], strlen(default_hostname));
+        memcpy(default_profile.password, &default_pass[0], strlen(default_pass));
+        default_profile.host_name_len     = strlen(default_hostname);
+        default_profile.pass_len          = strlen(default_pass);
+        default_profile.priority          = 5;
+        default_profile.sec_params.Type   = SL_SEC_TYPE_WPA_WPA2;
+        default_profile.sec_params.Key    = &default_profile.password[0];
+        default_profile.sec_params.KeyLen = default_profile.pass_len;
 
-    uint8_t configured_access_point_count = cm_load_saved_profiles();
-    int16_t ret = -150;
-    if(!configured_access_point_count)
-        ret = cm_add_connection_profile(&default_profile);
-
-    uart_log("profile add rc: %d\n", ret);
-    configured_access_point_count = cm_load_saved_profiles();
-
-    if(configured_access_point_count)
-        uart_log("\n%d configured access points found.", configured_access_point_count);
+        uart_log("[wifi] no profiles stored; adding default '%s'...\n", default_hostname);
+        int16_t add_rc = cm_add_connection_profile(&default_profile);
+        uart_log("[wifi] profile add rc=%d\n", add_rc);
+        if (add_rc < 0) {
+            uart_log_fatal("[wifi] FATAL: could not add default profile\n");
+            System_abort("Failed to add default WiFi profile");
+        }
+        profile_count = cm_load_saved_profiles();
+    }
 
     cm_print_configured_profiles();
 
-    uint32_t connection_retry_counter = 0;
-
+    /*
+     * Auto-connect (set in cm_configure_wifi_parameters) makes the NWP connect to
+     * the highest-priority stored profile on its own and reconnect after drops.
+     * We just watch the state the async WLAN/NetApp event handlers maintain,
+     * drive Board_LED1, and release the server once associated with an IP.
+     */
+    uint32_t wait_ticks = 0;
     for(;;) {
+        bool up = connection_state.device_connected && connection_state.ip_acquired;
 
-        if(!configured_access_point_count){
-            // Log that no network is configured.
-            uart_log("No APs configured.");
-
+        if (up) {
+            if (!connected) {
+                GPIO_write(Board_LED1, Board_LED_ON);
+                uart_log("[wifi] connected; IP acquired -- starting server\n");
+                Semaphore_post(sem);
+                connected = true;
+            }
         } else {
-
-            if ((connection_state.device_connected != true) || (connection_state.ip_acquired != true))
-             {
-                 connection_retry_counter++;
-                 GPIO_toggle(Board_LED1);
-                 int16_t ret = sl_WlanConnect(default_profile.hostname, default_profile.host_name_len,
-                                              NULL, &default_profile.sec_params, NULL);
-                 uart_log("Connection trial: %d. Ret: %d\n", connection_retry_counter, ret);
-             } else {
-                 // successful connection. Release sem to kick start server
-                 if(!connected) {
-                     GPIO_write(Board_LED1, Board_LED_ON);
-                     Semaphore_post(sem);
-                     connected = true;
-                 }
-             }
+            GPIO_toggle(Board_LED1);   // blink while not fully up
+            if ((wait_ticks++ % 10) == 0) {
+                uart_log("[wifi] waiting for connection (assoc=%d ip=%d)\n",
+                         connection_state.device_connected, connection_state.ip_acquired);
+            }
         }
         Task_sleep(500);
     }

@@ -52,30 +52,29 @@ void cm_connection_mgr(UArg arg0, UArg arg1);
 
 
 /*
-Adds profile of WiFI AP sets auto connect policy.
+ * Store a WLAN profile on the NWP (sl_WlanProfileAdd). Returns the stored index
+ * (>=0) or a negative error. Adding an existing profile (same SSID/MAC/sec type)
+ * replaces it at the same index. Used at boot for the default and, later, by the
+ * console to add profiles on the fly.
  */
 int16_t cm_add_connection_profile(struct wlan_profile_info *profile);
 
 /*
-Find saved profiles
+ * Read the profiles stored on the NWP into saved_profiles. Note the NWP does not
+ * return profile keys. Returns the number of profiles found.
  */
 uint8_t cm_load_saved_profiles(void);
 
-/*
-Find saved profiles
- */
+/* Print the currently loaded profiles to the console. */
 void cm_print_configured_profiles(void);
+
+/* Delete every stored profile (sl_WlanProfileDel(255)). For console use. */
+void cm_remove_all_connection_profiles(void);
 
 /*
  *  ======== cm_configure_wifi_parameters ========
  *  1. Sets WiFi to Station mode
  *  2. Enable DHCP client
- *  3. Set auto connect policy
+ *  3. Sets the auto-connect policy
  */
 void cm_configure_wifi_parameters(void);
-
-/*
- * Calls sl_WlanGetNetworkList and loops through valid networks and extracts bssid from specified ssid.
- * Should fail if specified ssid isn't found
- */
-Sl_WlanNetworkEntry_t cm_read_accesspoint_bssid(_u8* host_name, _u8* ap_mac_address);
