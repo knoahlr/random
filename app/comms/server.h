@@ -32,4 +32,3 @@ void server_task(UArg arg0, UArg arg1);
 
 void tcp_message_handler(int server, Mailbox_Handle mail);
 
-

@@ -20,6 +20,7 @@ set(GEN_DIR ${CMAKE_SOURCE_DIR}/generated CACHE PATH "XDC configuro output")
 add_library(sdk_config INTERFACE)
 target_include_directories(sdk_config INTERFACE
     ${CMAKE_SOURCE_DIR}
+    ${CMAKE_SOURCE_DIR}/app
     ${GEN_DIR}
     ${SDK}/bios/packages
     ${SDK}/xdc/packages
@@ -73,16 +74,16 @@ set(SDK_PREBUILT_LIBS
 # Application. Requires the one-time XDC-generated config + linker script.
 # ---------------------------------------------------------------------------
 set(APP_SOURCES
-    random.c
+    app/main.c
     EK_TM4C129EXL.c
-    communication/connection_manager.c
-    server/server.c
-    server/inet.c
-    server/udp_discovery.c
-    gamepad/gamepad_input.c
-    hardware/dc_motor_control.c
-    hardware/stepper_control.c
-    uart/uart_interface.c
+    app/comms/connection_manager.c
+    app/comms/server.c
+    app/comms/inet.c
+    app/comms/udp_discovery.c
+    app/input/gamepad_input.c
+    app/hardware/dc_motor_control.c
+    app/hardware/stepper_control.c
+    app/comms/uart_interface.c
     src/newlib_locks.c   # C-library lock retargeting for gcc 13.2 newlib (see docs/newlib-locking-port.md)
 )
 

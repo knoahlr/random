@@ -16,8 +16,7 @@
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/WiFi.h>
 
-//#include <communication/uart_interface.h>
-#include <uart/uart_interface.h>
+#include <comms/uart_interface.h>
 
 #include "Board.h"
 
@@ -28,7 +27,7 @@ struct wlan_profile_info
     int16_t host_name_len;
     uint8_t pass_len;
     uint32_t priority;
-    uint8_t mac_address;
+    uint8_t mac_address[SL_MAC_ADDR_LEN];
     SlSecParams_t sec_params;
     SlGetSecParamsExt_t sec_ext_params;
 };
@@ -85,6 +84,3 @@ Sl_WlanNetworkEntry_t CM_read_accesspoint_bssid(_u8* hostName, _u8* apMACAddress
  * monitor the state of the WiFi connection
  */
  void *CM_connectionStateMonitor(void);
-
-
-

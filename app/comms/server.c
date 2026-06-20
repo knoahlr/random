@@ -6,10 +6,11 @@
  */
 
 /* XDCtools Header files */
-#include <communication/connection_manager.h>
-#include <gamepad/gamepad_input.h>
+#include <comms/connection_manager.h>
+#include <comms/comms_config.h>
+#include <input/gamepad_input.h>
 #include <hardware/stepper_control.h>
-#include <server/server.h>
+#include <comms/server.h>
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
 #include <ti/sysbios/knl/Semaphore.h>
@@ -20,13 +21,6 @@
 #include "udp_discovery.h"
 #include "inet.h"
 
-#define TCPPORT         26543
-#define TCPPACKETSIZE   256
-
-
-#define UDP_DISCOVERY_CYCLE_MS 1000
-
-static server_state_t current_mode = SERVER_MODE;
 static bool conn_active = false;
 
 // Helper to connect as client (new function)
@@ -50,8 +44,8 @@ bool is_conn_active(int client_fd){
     if (bytesSent > 0){
         conn_active = true;
     } else {
-    conn_active = false;
-}
+        conn_active = false;
+    }
     uint8_t conn_status_string[] = "Not Active";
     if(conn_active){
         strcpy((char*)conn_status_string, "Active");
@@ -64,32 +58,40 @@ void tcp_message_handler(int server, Mailbox_Handle mail) {
 
   int         bytesRcvd;
   int         bytesSent;
-  int         client_fd;
+  int         client_fd = -1;
 
   sockaddr_in clientAddr;
   socklen_t   addrlen = sizeof(clientAddr);
 
-  uint8_t        buffer[TCPPACKETSIZE];
+  uint8_t        buffer[APP_TCP_PACKET_SIZE];
 
   int listen_rc = listen(server, 0);
+  if (listen_rc < 0) {
+    printf("Error: listen failed.\n");
+    return;
+  }
 
-  while(!listen_rc) {
+  for(;;) {
     client_fd = accept(server, (sockaddr *)&clientAddr, &addrlen);
+    if (client_fd < 0) {
+        Task_sleep(100);
+        continue;
+    }
 
     uint32_t time_at_accept_s = Seconds_get();
     uint32_t time_since_last_byte = time_at_accept_s;
 
-    while(client_fd) {
+    while(client_fd >= 0) {
 
         GPIO_toggle(Board_LED0);
-        bytesRcvd = recv(client_fd, buffer, TCPPACKETSIZE, 4);
+        bytesRcvd = recv(client_fd, buffer, APP_TCP_PACKET_SIZE, 4);
 
         Gamepad gamepad_state = { 0 };
 
         while ( bytesRcvd > 0 ) {
             time_since_last_byte = Seconds_get();
             bool command_frame_parse_rc = commandFrameParse(&gamepad_state, buffer, sizeof(buffer));
-            memset(buffer, 0, TCPPACKETSIZE);
+            memset(buffer, 0, APP_TCP_PACKET_SIZE);
 
             if(command_frame_parse_rc) {
                 bool rc = Mailbox_post(mail, &gamepad_state, MAILBOX_TIMEOUT);
@@ -102,31 +104,29 @@ void tcp_message_handler(int server, Mailbox_Handle mail) {
 
             if (bytesSent < 0) {
               printf("Error: send failed.\n");
+              close(client_fd);
+              client_fd = -1;
               break;
             }
-            bytesRcvd = recv(client_fd, buffer, TCPPACKETSIZE, 4);
+            bytesRcvd = recv(client_fd, buffer, APP_TCP_PACKET_SIZE, 4);
         }
         Task_sleep(100);
 
         //if 10 seconds has passed without a message check that connection is still active
-        if( abs(Seconds_get()-time_since_last_byte) > CONN_RETRY_TIMER_S){
+        if((Seconds_get() - time_since_last_byte) > CONN_RETRY_TIMER_S){
             if(!is_conn_active(client_fd)) {
-                listen_rc = listen(server, 0);
-                client_fd = accept(server, (sockaddr *)&clientAddr, &addrlen);
+                close(client_fd);
+                client_fd = -1;
             }
         }
     }
   }
-  printf("closing server. ooops!");
-  addrlen = sizeof(clientAddr);
-  close(client_fd);
-  GPIO_write(Board_LED0, 0);
 }
 // --- Main dual-mode loop ---
 void server_task(UArg arg0, UArg arg1)
 {
     _u32        semaphoreTimeout;
-    bool        semphorePostStatus = false;
+    bool        semaphorePostStatus = false;
     struct sockaddr_in localAddr;
     int         status;
     int server = -1;
@@ -138,9 +138,9 @@ void server_task(UArg arg0, UArg arg1)
     udp_discovery_init();
 
     // Wait for network connection/IP acquired
-    semphorePostStatus = Semaphore_pend(sem, semaphoreTimeout);
-    if (!semphorePostStatus) return;
-        GPIO_write(Board_LED0, 0);
+    semaphorePostStatus = Semaphore_pend(sem, semaphoreTimeout);
+    if (!semaphorePostStatus) return;
+    GPIO_write(Board_LED0, 0);
 
     uint32_t last_cycle = Seconds_get();
     relay_app_beacon_t relay = {0};
@@ -150,7 +150,7 @@ void server_task(UArg arg0, UArg arg1)
             udp_send_beacon();
             if (udp_check_for_app_beacon(&relay) && relay.valid) {
                 current_mode = CLIENT_MODE;
-        }
+            }
             last_cycle = Seconds_get();
         }
         if (current_mode == SERVER_MODE) {
@@ -158,30 +158,33 @@ void server_task(UArg arg0, UArg arg1)
             if (server < 0) {
                 server = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
                 if (server < 0) continue;
-        memset(&localAddr, 0, sizeof(localAddr));
-        localAddr.sin_family = AF_INET;
-        localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
-        localAddr.sin_port = htons(TCPPORT);
+                memset(&localAddr, 0, sizeof(localAddr));
+                localAddr.sin_family = AF_INET;
+                localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+                localAddr.sin_port = htons(APP_TCP_SERVER_PORT);
                 status = bind(server, (const struct sockaddr *)&localAddr, sizeof(localAddr));
                 if (status == -1) { close(server); server = -1; continue; }
-        }
-        tcp_message_handler(server, mail);
+            }
+            tcp_message_handler(server, mail);
         } else if (current_mode == CLIENT_MODE) {
             int client_fd = connect_to_relay_app(relay.ip, relay.port);
             if (client_fd >= 0) {
-                char handshake[] = "{\"type\":\"tm4c_connect\",\"device_id\":\"tm4c129x-001\"}";
+                char handshake[] = "{\"type\":\"tm4c_connect\",\"device_id\":\"" APP_DEVICE_ID "\"}";
                 send(client_fd, handshake, strlen(handshake), 0);
-                uint8_t buffer[TCPPACKETSIZE];
+                uint8_t buffer[APP_TCP_PACKET_SIZE];
                 int bytesRcvd;
-                while ((bytesRcvd = recv(client_fd, buffer, TCPPACKETSIZE, 0)) > 0) {
+                while ((bytesRcvd = recv(client_fd, buffer, APP_TCP_PACKET_SIZE, 0)) > 0) {
                     Gamepad gamepad_state = { 0 };
                     bool command_frame_parse_rc = commandFrameParse(&gamepad_state, buffer, sizeof(buffer));
-                    memset(buffer, 0, TCPPACKETSIZE);
+                    memset(buffer, 0, APP_TCP_PACKET_SIZE);
                     if(command_frame_parse_rc) {
                         bool rc = Mailbox_post(mail, &gamepad_state, MAILBOX_TIMEOUT);
-    }
+                        if(!rc) {
+                            printf("Error: Unable to post gamepad state to mailbox.\n");
+                        }
+                    }
                     send(client_fd, gamepad_state.status, sizeof(gamepad_state.status), 0);
-}
+                }
                 close(client_fd);
             }
             current_mode = SERVER_MODE;
@@ -189,4 +192,3 @@ void server_task(UArg arg0, UArg arg1)
         }
     }
 }
-

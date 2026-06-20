@@ -9,8 +9,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdio.h>
 
-#include <uart/uart_interface.h>
+#include <comms/uart_interface.h>
 
 #include "inc/hw_ints.h"
 #include "inc/hw_memmap.h"
@@ -59,7 +60,7 @@ void  uart_messaging_service(UArg arg0){
       configure_uart_interface(0);
 
     for(;;) {
-        uint32_t bytes_recv = UARTgets(&uart_rx_buffer, UART_BUFFER_LEN);
+        uint32_t bytes_recv = UARTgets((char *)uart_rx_buffer, UART_BUFFER_LEN);
         if(bytes_recv < 3){
             UARTwrite(shell_prompt_str, strlen(shell_prompt_str));
 //            UARTFlushTx(false);
@@ -77,5 +78,3 @@ void  uart_messaging_service(UArg arg0){
         Task_sleep(100);
     }
 }
-
-

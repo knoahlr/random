@@ -57,10 +57,10 @@
 #include "Board.h"
 
 #include <hardware/dc_motor_control.h>
-#include <communication/connection_manager.h>
-#include <uart/uart_interface.h>
+#include <comms/connection_manager.h>
+#include <comms/uart_interface.h>
 #include <hardware/stepper_control.h>
-#include <server/server.h>
+#include <comms/server.h>
 #include "driverlib/interrupt.h"
 /* <time.h> intentionally omitted: it is unused here and pulls newlib's
  * <sys/select.h>, whose select/fd_set/timeval collide with SimpleLink's BSD
@@ -74,10 +74,6 @@
 #define CM_TASKSTACKSIZE     8192
 #define DEFAULT_SERVER_TASKSTACKSIZE   8192
 #define MOTOR_DUTY_TASKSTACKSIZE   2048
-
-#define TCPPORT         1000
-#define TCPPACKETSIZE   100
-
 
 #define STARTTIME 1718248069 //12/06/24
 
@@ -104,10 +100,8 @@ int main(void) {
     Task_Params conn_mgr_params;
     Task_Params server_task_params;
     Task_Params motor_control_params;
-    Task_Params uart_params;
     Task_Handle conn_mgr_handle;
     Task_Handle server_handle;
-    Task_Handle uart_handle;
 
     // Semaphore Declarations
 
@@ -129,7 +123,7 @@ int main(void) {
     Task_Params_init(&motor_control_params);
     motor_control_params.stackSize = MOTOR_DUTY_TASKSTACKSIZE;
     motor_control_params.stack = &task_motorDutyStack;
-    motor_control_params.arg0 = mailboxHandle;
+    motor_control_params.arg0 = (UArg)mailboxHandle;
     motor_control_params.priority = 2;
     Task_construct(&task_PwmLedStruct, (Task_FuncPtr)pwm_motor_proc_init, &motor_control_params, NULL);
 
@@ -137,8 +131,8 @@ int main(void) {
     GPIO_write(Board_LED0, Board_LED_ON);
 
     Task_Params_init(&conn_mgr_params);
-    conn_mgr_params.arg0 = semaphoreHandle;
-    conn_mgr_params.arg1 = uart_queue_handle;
+    conn_mgr_params.arg0 = (UArg)semaphoreHandle;
+    conn_mgr_params.arg1 = (UArg)uart_queue_handle;
     conn_mgr_params.stackSize = CM_TASKSTACKSIZE;
     conn_mgr_params.stack = &task_ConnectionManagerStack;
     conn_mgr_params.priority = 2;
@@ -158,8 +152,8 @@ int main(void) {
 
     /* Construct serverTask Task thread */
     Task_Params_init(&server_task_params);
-    server_task_params.arg0 = mailboxHandle;
-    server_task_params.arg1 = semaphoreHandle;
+    server_task_params.arg0 = (UArg)mailboxHandle;
+    server_task_params.arg1 = (UArg)semaphoreHandle;
     server_task_params.stackSize = DEFAULT_SERVER_TASKSTACKSIZE;
     server_task_params.stack = &server_stack;
     server_task_params.priority = 2;

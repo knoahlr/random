@@ -1,0 +1,15 @@
+#ifndef APP_COMMS_CONFIG_H
+#define APP_COMMS_CONFIG_H
+
+#define APP_DEVICE_ID "tm4c129x-001"
+
+#define APP_DEFAULT_WIFI_SSID "tatakae"
+#define APP_DEFAULT_WIFI_PASS "itadoriyuji"
+
+#define APP_TCP_SERVER_PORT 26543
+#define APP_TCP_PACKET_SIZE 256
+
+#define APP_UDP_BROADCAST_PORT 5051
+#define APP_UDP_BEACON_INTERVAL_S 1
+
+#endif /* APP_COMMS_CONFIG_H */

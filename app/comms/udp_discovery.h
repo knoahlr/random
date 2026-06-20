@@ -3,12 +3,14 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include <comms/comms_config.h>
+
 // UDP beaconing, device/app discovery, and negotiation state management.
 
-#define UDP_BROADCAST_PORT 5051
-#define UDP_BEACON_INTERVAL_S 2
-#define DEVICE_ID "tm4c129x-001" // Customizable per device
-#define DEFAULT_SERVER_PORT 1000
+#define UDP_BROADCAST_PORT APP_UDP_BROADCAST_PORT
+#define UDP_BEACON_INTERVAL_S APP_UDP_BEACON_INTERVAL_S
+#define DEVICE_ID APP_DEVICE_ID
+#define DEFAULT_SERVER_PORT APP_TCP_SERVER_PORT
 
 // Discovery beacon from relay app
 typedef struct {

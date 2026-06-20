@@ -1,8 +1,10 @@
 #include "udp_discovery.h"
+#include <comms/comms_config.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include <ti/sysbios/hal/Seconds.h>
 #include "socket.h"
 #include "EK_TM4C129EXL.h"
@@ -41,7 +43,7 @@ void udp_send_beacon()
     char beacon[256];
     snprintf(beacon, sizeof(beacon),
         "{\"type\":\"tm4c_firmware\",\"device_id\":\"%s\",\"default_server_port\":%d,\"capabilities\":[\"server\",\"client\"],\"status\":\"available\"}",
-        DEVICE_ID, DEFAULT_SERVER_PORT);
+        APP_DEVICE_ID, APP_TCP_SERVER_PORT);
     sendto(udp_broadcast_sock, beacon, strlen(beacon), 0, (struct sockaddr *)&broadcast_addr, sizeof(broadcast_addr));
 }
 

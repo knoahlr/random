@@ -105,7 +105,7 @@ default).
 forced on) does `#define timeval SlTimeval_t`, `#define fd_set SlFdSet_t`, and
 defines its own `select()`. Pulling in newlib's `<sys/select.h>` in the same TU
 collides. The app **uses BSD socket names**, so SimpleLink's layer must stay on.
-**Fix:** don't pull newlib's `<sys/select.h>`. In `random.c` that meant removing
+**Fix:** don't pull newlib's `<sys/select.h>`. In `app/main.c` that meant removing
 an **unused** `#include <time.h>` (which chained `time.h → sys/types.h →
 sys/select.h`). Time comes from SYS/BIOS `Seconds`.
 

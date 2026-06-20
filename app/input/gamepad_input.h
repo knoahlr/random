@@ -13,8 +13,6 @@
 #ifndef GAMEPADINPUT_H_
 #define GAMEPADINPUT_H_
 
-#define TCPPACKETSIZE   256
-
 typedef struct  ControlInterpreter
     {
             int LeftTrigger;

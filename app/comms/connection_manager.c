@@ -1,9 +1,10 @@
 
 /* Example/Board Header file */
 
-//#include <communication/uart_interface.h>
-#include <communication/connection_manager.h>
+#include <comms/connection_manager.h>
+#include <comms/comms_config.h>
 #include <utils/uartstdio.h>
+#include <stdio.h>
 
 #if defined(MSP430WARE) || defined(MSP432WARE)
 #define SPI_BIT_RATE    2000000
@@ -15,8 +16,8 @@
 
 const static bool erase_network_list = true;
 
-const static char default_hostname[] = "tatakae";
-const static char default_pass[] = "itadoriyuji";
+const static char default_hostname[] = APP_DEFAULT_WIFI_SSID;
+const static char default_pass[] = APP_DEFAULT_WIFI_PASS;
 
 static uint8_t apMacAddr[SL_MAC_ADDR_LEN];
 static uint8_t deviceMACAddress[SL_MAC_ADDR_LEN];
@@ -112,9 +113,10 @@ void SimpleLinkSockEventHandler(SlSockEvent_t *pSock)
  */
 void SimpleLinkWlanEventHandler(SlWlanEvent_t *pArgs)
 {
+    printf("WLAN EVENT:%d \n", pArgs->Event);
+    UARTprintf("WLAN EVENT:%d \n", pArgs->Event);
+
     switch (pArgs->Event) {
-	printf("WLAN EVENT:%d \n", pArgs->Event);
-	UARTprintf("WLAN EVENT:%d \n", pArgs->Event);
         case SL_WLAN_CONNECT_EVENT:
             connection_state.deviceConnected = true;
             break;
@@ -226,7 +228,7 @@ void CM_print_configured_profiles(){
         printf("\nSaved profiles found");
         for(; profile_index < saved_profiles.config_net_count; profile_index++){
             uint8_t profile_mac[6];
-            memcpy(&profile_mac, saved_profiles.profile_entries[profile_index].mac_address, 6);
+            memcpy(profile_mac, saved_profiles.profile_entries[profile_index].mac_address, sizeof(profile_mac));
             System_printf("\t\nSSID: %s,\t\nPassword:%s \t\nMAC: %x\t\nSSID Len: %d\n", (char *)saved_profiles.profile_entries[profile_index].hostname,
                           saved_profiles.profile_entries[profile_index].sec_params.Key,
                           &profile_mac,
@@ -244,9 +246,9 @@ uint8_t CM_load_saved_profiles(){
 
    uint8_t profile_index = 0;
    while(1){
-       int16_t ret = sl_WlanProfileGet(profile_index, &saved_profiles.profile_entries[saved_profiles.config_net_count].hostname,
+       int16_t ret = sl_WlanProfileGet(profile_index, saved_profiles.profile_entries[saved_profiles.config_net_count].hostname,
                                        &saved_profiles.profile_entries[saved_profiles.config_net_count].host_name_len,
-                                       &saved_profiles.profile_entries[saved_profiles.config_net_count].mac_address,
+                                       saved_profiles.profile_entries[saved_profiles.config_net_count].mac_address,
                                        &saved_profiles.profile_entries[saved_profiles.config_net_count].sec_params,
                                        &saved_profiles.profile_entries[saved_profiles.config_net_count].sec_ext_params,
                                        &saved_profiles.profile_entries[saved_profiles.config_net_count].priority);
@@ -268,9 +270,9 @@ int16_t CM_add_connection_profile(struct wlan_profile_info *profile)
     UARTprintf("Adding profile.\nHostname:%s\npassword:%s\n", profile->hostname, profile->sec_params.Key);
 
     if(profile->sec_params.Type == SL_SEC_TYPE_OPEN) {
-        wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, NULL, NULL, profile->priority, NULL);
+        wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, NULL, NULL, profile->priority, 0);
     } else {
-        wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, &profile->sec_params, NULL, profile->priority, NULL);
+        wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, &profile->sec_params, NULL, profile->priority, 0);
     }
     return wlanConnectRC;
 }
@@ -356,7 +358,7 @@ void CM_connection_mgr(UArg arg0, UArg arg1){
                  GPIO_toggle(Board_LED1);
                  struct log_uart *uart_log = (struct log_uart *)malloc(sizeof(struct log_uart));
                  if(uart_log != NULL) {
-                   sprintf(uart_log->data, "Connection trial: %d.\n", connectionRetryCounter);
+                   snprintf(uart_log->data, sizeof(uart_log->data), "Connection trial: %d.\n", connectionRetryCounter);
                    Queue_enqueue(uart_queue_handle,  &uart_log->elem);
                  }
                  int16_t ret = -150;

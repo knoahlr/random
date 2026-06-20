@@ -5,7 +5,7 @@
  *      Author: Noah Workstation
  */
 
-#include <gamepad/gamepad_input.h>
+#include <input/gamepad_input.h>
 #include <string.h>
 #include <stdbool.h>
 #include <stdio.h>

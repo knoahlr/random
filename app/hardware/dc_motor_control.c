@@ -6,7 +6,7 @@
  */
 
 #include <hardware/dc_motor_control.h>
-#include <uart/uart_interface.h>
+#include <comms/uart_interface.h>
 
 static PWM_Handle pwm1;
 static PWM_Handle pwm2;
@@ -108,4 +108,3 @@ void update_motor_state() {
         }
     }
 }
-
