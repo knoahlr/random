@@ -41,10 +41,11 @@ static struct connection_status connection_state;
  */
 void SimpleLinkGeneralEventHandler(SlDeviceEvent_t *pDevEvent)
 {
-    uart_log("General Event Handler - ID=%d Sender=%d\n\n",
+    uart_log("General event occurred, Event ID: %x\n", pDevEvent->Event);
+    uart_log("[wifi] General Event Handler - ID=%d Sender=%d\n\n",
            pDevEvent->EventData.deviceEvent.status,  // status of the general event
            pDevEvent->EventData.deviceEvent.sender); // sender type
-    uart_log("General event occurred, Event ID: %x\n", pDevEvent->Event);
+    uart_log("[wifi] General event occurred, Event ID: %x\n", pDevEvent->Event);
 }
 
 /*
@@ -76,7 +77,12 @@ void SimpleLinkNetAppEventHandler(SlNetAppEvent_t *pArgs)
         case SL_NETAPP_IPV4_IPACQUIRED_EVENT:
             connection_state.ip_acquired = true;
             connection_state.ipv4_address = pArgs->EventData.ipAcquiredV4.ip;
-            uart_log("\nIP Address Acquired: %u\n", connection_state.ipv4_address);
+            /* ipv4_address is a host-order u32; print dotted-quad (MSB first). */
+            uart_log("\nIP Address Acquired: %u.%u.%u.%u\n",
+                     (unsigned)((connection_state.ipv4_address >> 24) & 0xFF),
+                     (unsigned)((connection_state.ipv4_address >> 16) & 0xFF),
+                     (unsigned)((connection_state.ipv4_address >> 8)  & 0xFF),
+                     (unsigned)( connection_state.ipv4_address        & 0xFF));
             break;
         case SL_NETAPP_IPV6_IPACQUIRED_EVENT:
             connection_state.ip_acquired = true;
