@@ -129,13 +129,17 @@ void server_task(UArg arg0, UArg arg1)
     semaphore_timeout = 20000 * Clock_tickPeriod;
     Semaphore_Handle sem = (Semaphore_Handle)arg1;
     Mailbox_Handle mail = (Mailbox_Handle)arg0;
-    // Init UDP discovery
-    udp_discovery_init();
 
-    // Wait for network connection/IP acquired
+    // Wait for network connection/IP acquired BEFORE touching the SimpleLink
+    // socket layer. udp_discovery_init() opens a socket (sl_Socket); doing that
+    // before the link is up makes the server task contend the single-threaded
+    // NWP command pipe with the connection manager's bring-up commands.
     semaphore_post_status = Semaphore_pend(sem, semaphore_timeout);
     if (!semaphore_post_status) return;
     GPIO_write(Board_LED1, 0);
+
+    // Init UDP discovery (network is up now)
+    udp_discovery_init();
 
     uint32_t last_cycle = Seconds_get();
     relay_app_beacon_t relay = {0};

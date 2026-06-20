@@ -68,6 +68,7 @@
 
 static Task_Struct task_motor_control_struct;
 static Task_Struct task_uart_log_struct;
+static Task_Struct task_connection_manager_struct;
 
 static Char server_stack[DEFAULT_SERVER_TASKSTACKSIZE];
 static Char task_connection_manager_stack[CM_TASKSTACKSIZE];
@@ -85,7 +86,6 @@ int main(void) {
     Task_Params server_task_params;
     Task_Params motor_control_params;
     Task_Params uart_log_params;
-    Task_Handle conn_mgr_handle;
     Task_Handle server_handle;
 
     Semaphore_Handle semaphore_handle = Semaphore_create(0, NULL, NULL);
@@ -129,12 +129,9 @@ int main(void) {
     conn_mgr_params.arg0 = (UArg)semaphore_handle;
     conn_mgr_params.stackSize = CM_TASKSTACKSIZE;
     conn_mgr_params.stack = task_connection_manager_stack;
-    conn_mgr_params.priority = 2;
-    conn_mgr_handle = Task_create((Task_FuncPtr)cm_connection_mgr, &conn_mgr_params, NULL);
-
-    if (!conn_mgr_handle) {
-        System_abort("Failed to launch connection manager task");
-    }
+    conn_mgr_params.priority = 3;
+    Task_construct(&task_connection_manager_struct,
+                   (Task_FuncPtr)cm_connection_mgr, &conn_mgr_params, NULL);
 
     /* Server task blocks until the connection manager posts after WiFi/IP is up. */
     Task_Params_init(&server_task_params);
@@ -150,6 +147,5 @@ int main(void) {
     }
 
     BIOS_start();
-
     return (0);
 }
