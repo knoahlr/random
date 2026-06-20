@@ -1,10 +1,10 @@
 # Builds SYS/BIOS as a static library from the exact source set that XDC
-# `configuro` selected for random.cfg (the 29 files listed in the generated
-# sysbios makefile). See docs/regenerating-sysbios-config.md. If random.cfg
+# `configuro` selected for xCon/sysbios/random.cfg (the 29 files listed in the
+# generated sysbios makefile). See docs/regenerating-sysbios-config.md. If random.cfg
 # changes the set of BIOS modules, re-sync this list + SYSBIOS_FEATURE_DEFS
-# from generated/package/cfg/random_pm4fg.src/sysbios/makefile.
+# from xCon/generated/package/cfg/random_pm4fg.src/sysbios/makefile.
 
-set(SYSBIOS_DIR ${CMAKE_SOURCE_DIR}/third_party/sdk/bios/packages/ti/sysbios)
+set(SYSBIOS_DIR ${XCON}/third_party/sdk/bios/packages/ti/sysbios)
 
 set(SYSBIOS_C_SOURCES
     BIOS.c

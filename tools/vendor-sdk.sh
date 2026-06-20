@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 #
-# Vendor the exact SDK subset this firmware needs into third_party/ so the repo
+# Vendor the exact SDK subset this firmware needs into xCon/third_party/ so the repo
 # builds self-contained (cmake + ninja + arm-none-eabi-gcc) with no TI install.
 #
 # What gets vendored (pruned to headers + GNU libs + the BIOS sources we compile):
-#   third_party/tivaware/            TivaWare driverlib + utils + inc (built from source)
-#   third_party/sdk/bios/packages/   SYS/BIOS source+headers + gnu target headers
-#   third_party/sdk/xdc/packages/    xdc.runtime / xdc.std headers
-#   third_party/sdk/tidrivers/packages/  ti.drivers + cc3x00 WiFi headers + GNU .am4fg libs
+#   xCon/third_party/tivaware/            TivaWare driverlib + utils + inc (built from source)
+#   xCon/third_party/sdk/bios/packages/   SYS/BIOS source+headers + gnu target headers
+#   xCon/third_party/sdk/xdc/packages/    xdc.runtime / xdc.std headers
+#   xCon/third_party/sdk/tidrivers/packages/  ti.drivers + cc3x00 WiFi headers + GNU .am4fg libs
 #
 # NDK is intentionally omitted (the app uses SimpleLink's own sockets). Add it
 # only if the final link reports unresolved ti_ndk_* symbols.
@@ -26,7 +26,7 @@ XDCTOOLS="${TI_ROOT}/xdctools_3_32_00_06_core/packages"
 # ---------------------------------------------------------------------------
 
 PROJ_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TP="${PROJ_DIR}/third_party"
+TP="${PROJ_DIR}/xCon/third_party"
 WIFI="ti/mw/wifi/cc3x00"
 
 echo ">> Vendoring SDK subset into ${TP}"
@@ -70,10 +70,10 @@ copy_ext "${TIDRIVERS}/ti/drivers/lib"       "${TP}/sdk/tidrivers/packages/ti/dr
 copy_ext "${TIDRIVERS}/ti/drivers/ports/lib" "${TP}/sdk/tidrivers/packages/ti/drivers/ports/lib" am4fg
 copy_ext "${TIDRIVERS}/${WIFI}/lib"          "${TP}/sdk/tidrivers/packages/${WIFI}/lib"          am4fg
 # gnu RTS (xdc.runtime bodies, _c_int00 boot, syscall stubs) + TivaC catalog Boot
-# (SysCtl clock init). Linked from third_party/ instead of the configuro INPUT().
+# (SysCtl clock init). Linked from xCon/third_party/ instead of the configuro INPUT().
 copy_ext "${BIOS}/gnu/targets/arm/rtsv7M/lib"              "${TP}/sdk/bios/packages/gnu/targets/arm/rtsv7M/lib"              am4fg
 copy_ext "${BIOS}/ti/catalog/arm/cortexm4/tiva/ce/lib"    "${TP}/sdk/bios/packages/ti/catalog/arm/cortexm4/tiva/ce/lib"    am4fg
 
 echo ">> Done."
 du -sh "${TP}"/* 2>/dev/null || true
-echo ">> Vendored. CMake reads from third_party/ (see CMakeLists.txt)."
+echo ">> Vendored. CMake reads from xCon/third_party/ (see CMakeLists.txt)."

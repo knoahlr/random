@@ -10,19 +10,19 @@ Open items after the CCS → CMake migration. **None of these block the build** 
 - [ ] **Remove legacy CCS files** now that the CMake build is complete:
   `.cproject`, `.ccsproject`, `.project`, `makefile.defs`, `.config/`,
   `targetConfigs/`.
-  **Keep `src/`** — it now holds `newlib_locks.c` (the C-library lock port).
+  SYS/BIOS support code now lives under `xCon/sysbios/`.
 - [ ] **Trim `CMakePresets.json`** — drop the now-unused `TI_ROOT`,
   `TIRTOS_INSTALL`, `TIVAWARE_INSTALL` variables (the build reads everything from
-  `third_party/`).
+  `xCon/third_party/`).
 
 ## Runtime / correctness
 
 - [x] **Retarget C-library I/O off semihosting.** Done: link `-lnosys` (was
-  `-lrdimon`) and `src/syscalls_uart.c` retargets `_write`/`_isatty`/`_sbrk` +
+  `-lrdimon`) and `xCon/sysbios/syscalls_uart.c` retargets `_write`/`_isatty`/`_sbrk` +
   no-op `initialise_monitor_handles` onto **UART0** (the ICDI virtual COM port).
   `printf`/`puts` now work standalone, no debugger. See
   [docs/uart-console-retarget.md](docs/uart-console-retarget.md). Optional
-  follow-up: drop the now-inert `SemiHostSupport` from `random.cfg` (needs a
+  follow-up: drop the now-inert `SemiHostSupport` from `xCon/sysbios/random.cfg` (needs a
   config regeneration).
 
 ## Watch-items (verify, no action unless they bite)

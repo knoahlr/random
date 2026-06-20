@@ -1,10 +1,10 @@
-# random.cfg and Memory Map Analysis
+# xCon/sysbios/random.cfg and Memory Map Analysis
 
-This file summarizes the configuration found in `random.cfg` and details the memory mapping and RTOS setup for the TM4C129ENCPDT-based firmware in this repository.
+This file summarizes the configuration found in `xCon/sysbios/random.cfg` and details the memory mapping and RTOS setup for the TM4C129ENCPDT-based firmware in this repository.
 
 ---
 
-## Purpose of `random.cfg`
+## Purpose of `xCon/sysbios/random.cfg`
 
 This file configures TI-RTOS (SYS/BIOS) kernel, memory, and system for the EK-TM4C129EXL development board. It specifies placement for code/data, RTOS kernel options, debug/exception settings, tasks, and TI driver library options.
 
@@ -89,4 +89,4 @@ This file configures TI-RTOS (SYS/BIOS) kernel, memory, and system for the EK-TM
 
 ---
 
-This summary provides a snapshot of the firmware’s system and memory configuration based on `random.cfg`. For actual memory usage at build time, consult the generated linker map file after a build (not included here).
+This summary provides a snapshot of the firmware’s system and memory configuration based on `xCon/sysbios/random.cfg`. For actual memory usage at build time, consult the generated linker map file after a build (not included here).

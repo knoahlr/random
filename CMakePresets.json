@@ -7,7 +7,7 @@
       "displayName": "TM4C129 / arm-none-eabi-gcc (Ninja)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build",
-      "toolchainFile": "${sourceDir}/cmake/toolchain-arm-none-eabi.cmake",
+      "toolchainFile": "${sourceDir}/xCon/cmake/toolchain-arm-none-eabi.cmake",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "MinSizeRel",
         "TI_ROOT": "/mnt/c/ti",

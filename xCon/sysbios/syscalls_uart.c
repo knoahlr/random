@@ -27,7 +27,7 @@
  *  keeps its default `_write`/`_sbrk`/... each in its own archive object pulled
  *  only to satisfy an undefined reference, so defining them here means the
  *  linker never pulls newlib's defaults -- no multiple-definition conflict.
- *  (Same trick as src/newlib_locks.c.) The build links -lnosys, not -lrdimon.
+ *  (Same trick as xCon/sysbios/newlib_locks.c.) The build links -lnosys, not -lrdimon.
  *
  *  See docs/tivac-cmake-migration.md and the initialise_monitor_handles entry in
  *  docs/quirks.md.
@@ -45,7 +45,7 @@
 #include "inc/hw_types.h"    /* HWREG                  */
 #include "driverlib/uart.h"  /* UARTCharPut            */
 
-/* Heap bounds from linker/tm4c129encpdt.lds (.heap region). No size is reserved
+/* Heap bounds from xCon/linker/tm4c129encpdt.lds (.heap region). No size is reserved
  * there -- malloc is BIOS-backed -- so end == __HeapLimit and _sbrk below grants
  * nothing. The symbols are kept so _sbrk gives the correct ENOMEM answer. */
 extern char end;          /* first free byte after .bss (a.k.a. _end) */

@@ -2,8 +2,8 @@
 
 How standalone (no-debugger) C-library I/O works in this firmware, and why the
 build links `-lnosys` instead of `-lrdimon`. Read this before touching
-`src/syscalls_uart.c`, the `.heap` region in `linker/tm4c129encpdt.lds`, or the
-`SemiHostSupport` line in `random.cfg`.
+`xCon/sysbios/syscalls_uart.c`, the `.heap` region in `xCon/linker/tm4c129encpdt.lds`, or the
+`SemiHostSupport` line in `xCon/sysbios/random.cfg`.
 
 ## The problem
 
@@ -23,10 +23,10 @@ naturally UART0 — which is the **EK-TM4C129EXL ICDI virtual COM port** (SPMU37
 it via TivaWare `UARTprintf`; only the C-library `printf`/`malloc` paths were
 still tied to semihosting.
 
-## The fix (`src/syscalls_uart.c`, no config regeneration)
+## The fix (`xCon/sysbios/syscalls_uart.c`, no config regeneration)
 
 Strong definitions that override newlib/libnosys defaults — the same override
-mechanism as `src/newlib_locks.c` (each default lives in its own archive object,
+mechanism as `xCon/sysbios/newlib_locks.c` (each default lives in its own archive object,
 pulled only to satisfy an undefined reference, so our definition wins with no
 multiple-definition error):
 
@@ -46,9 +46,9 @@ we do as the no-op above.
 
 `malloc`/`free` are **not** newlib's `_sbrk`-based allocator here: they resolve to
 the **SYS/BIOS heap** (`HeapMem`, emitted into the generated config and sized in
-`random.cfg`). So newlib shares the one RTOS heap, `_sbrk` is never called, and
+`xCon/sysbios/random.cfg`). So newlib shares the one RTOS heap, `_sbrk` is never called, and
 `--gc-sections` drops it from the image. Consequently **no `.heap` size is
-reserved** in `linker/tm4c129encpdt.lds` (`end == __HeapLimit`), saving SRAM. The
+reserved** in `xCon/linker/tm4c129encpdt.lds` (`end == __HeapLimit`), saving SRAM. The
 `_sbrk` guard exists only so that if some libc path ever did bypass the RTOS heap
 it fails cleanly (`ENOMEM`) instead of trapping. To switch back to a newlib heap,
 reserve a sized `.heap` in the linker script and the existing `_sbrk` becomes a
@@ -66,7 +66,7 @@ gate. If you need the earliest possible boot messages on the wire, move the
 
 `SemiHostSupport` is now inert (its only external call is our no-op), so it can
 stay. To remove it entirely, delete the `xdc.useModule('...SemiHostSupport')`
-block from `random.cfg` and regenerate the config (see
+block from `xCon/sysbios/random.cfg` and regenerate the config (see
 [regenerating-sysbios-config.md](regenerating-sysbios-config.md)) — a kernel
 module-set change, hence the one heavyweight step. Not required; the inert module
 costs only its tiny startup `lastFxn`.

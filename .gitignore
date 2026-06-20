@@ -56,7 +56,15 @@ Debug/*
 /Debug/
 
 # configuro output (regenerated via tools/generate-bios-config.sh)
-/generated/
+/xCon/generated/*
+!/xCon/generated/compiler.opt
+!/xCon/generated/linker.cmd
+!/xCon/generated/package/
+/xCon/generated/package/*
+!/xCon/generated/package/cfg/
+/xCon/generated/package/cfg/*
+!/xCon/generated/package/cfg/random_pm4fg.c
+!/xCon/generated/package/cfg/random_pm4fg.h
 
 # CMake build dir
 /build/

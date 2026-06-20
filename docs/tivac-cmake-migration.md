@@ -23,7 +23,7 @@ Related docs:
 
 **Start:** TM4C129ENCPDT firmware. TI-RTOS bundle `tirtos_tivac_2_16_00_08`
 (SYS/BIOS `bios_6_45_01_29`, TI-drivers, SimpleLink **CC3200 WiFi** host driver),
-TivaWare `2.2.0.295`, configured by `random.cfg` and built by CCS via
+TivaWare `2.2.0.295`, configured by `xCon/sysbios/random.cfg` and built by CCS via
 XDCtools `3.32.00.06` (RTSC) with the TI `armcl` compiler.
 
 **Goal:** a fresh WSL/Linux machine clones the repo and builds with **only**
@@ -36,7 +36,7 @@ XDCtools `3.32.00.06` (RTSC) with the TI `armcl` compiler.
    them, and never run XDCtools to build again.
 3. **Build SYS/BIOS from source** (it ships source-only anyway — see §3.1).
 4. **Link the other SDK pieces as prebuilt GNU libraries** (`.am4fg`).
-5. **Vendor** the needed SDK subset into `third_party/` so the repo is
+5. **Vendor** the needed SDK subset into `xCon/third_party/` so the repo is
    self-contained.
 
 ---
@@ -78,10 +78,10 @@ This SYS/BIOS distribution ships **source only** — there are no prebuilt kerne
 archives, just `.mak` recipes. `configuro` selects a config-specific subset (here
 **29 files**: 25 `.c` + 4 `.sv7M` GNU-assembly) and builds a custom `sysbios`
 library. We mirror that exact file list + its `-D` feature defines into CMake
-(`cmake/sysbios.cmake`). The driver/WiFi/RTS pieces, by contrast, **do** ship
+(`xCon/sysbios/sysbios.cmake`). The driver/WiFi/RTS pieces, by contrast, **do** ship
 prebuilt GNU `.am4fg` archives, so we link those.
 
-### 3.2 Make `random.cfg` target-agnostic (TI → GNU)
+### 3.2 Make `xCon/sysbios/random.cfg` target-agnostic (TI → GNU)
 
 Stock TI `.cfg` files assume `armcl`. Two edits are required for the gnu target
 (already applied here):
@@ -101,7 +101,7 @@ if (Program.build.target.$name.match(/ti\.targets/)) {
 
 ### 3.3 Vendor the SDK subset
 
-`tools/vendor-sdk.sh` rsyncs the pruned dependency set into `third_party/`
+`tools/vendor-sdk.sh` rsyncs the pruned dependency set into `xCon/third_party/`
 (headers + the GNU `.am4fg` libs + TivaWare/SYS-BIOS sources). It's reproducible;
 re-run only to refresh against a new SDK. NDK is intentionally excluded.
 
@@ -111,7 +111,7 @@ re-run only to refresh against a new SDK. NDK is intentionally excluded.
 (`volatile _LOCK_T lock; lock.init_done = 1;`) that assumes the **old newlib lock
 layout**. Modern newlib (gcc 13.x) makes `_LOCK_T` opaque, so it no longer
 compiles. It is neutralized in two places:
-- the vendored copy (`third_party/.../ReentSupport.c`) — used by the CMake build;
+- the vendored copy (`xCon/third_party/.../ReentSupport.c`) — used by the CMake build;
 - the SDK copy, applied idempotently by `tools/generate-bios-config.sh` — used by
   configuro's internal library build.
 
@@ -131,13 +131,13 @@ applies two idempotent post-generation patches: disabling the obsolete
 explained in [quirks.md](quirks.md)).
 
 Outputs that matter:
-- `generated/package/cfg/random_pm4fg.c` / `.h` — the static kernel config.
-- `generated/linker.cmd` — section + symbol fragment (no `MEMORY{}`; see §3.7).
-- `generated/compiler.opt` — reference include/define set.
+- `xCon/generated/package/cfg/random_pm4fg.c` / `.h` — the static kernel config.
+- `xCon/generated/linker.cmd` — section + symbol fragment (no `MEMORY{}`; see §3.7).
+- `xCon/generated/compiler.opt` — reference include/define set.
 
 ### 3.6 Freeze
 
-Force-add those artifacts (the rest of `generated/` is gitignored intermediate
+Force-add those artifacts (the rest of `xCon/generated/` is gitignored intermediate
 output) and commit. XDCtools is now out of the build loop.
 
 ### 3.7 Build with CMake
@@ -148,24 +148,24 @@ cmake --build --preset arm-gcc
 ```
 
 CMake structure:
-- `cmake/toolchain-arm-none-eabi.cmake` — Cortex-M4F flags.
-- `cmake/sysbios.cmake` — the 29 kernel files + `SYSBIOS_FEATURE_DEFS`.
+- `xCon/cmake/toolchain-arm-none-eabi.cmake` — Cortex-M4F flags.
+- `xCon/sysbios/sysbios.cmake` — the 29 kernel files + `SYSBIOS_FEATURE_DEFS`.
 - `CMakeLists.txt` — `sdk_config` (shared includes/defines) → `sysbios` +
   `tivaware` from source → link prebuilt `.am4fg` → `random.out` (gated on the
-  frozen `generated/` config) → `objcopy` to `.bin`/`.hex`.
+  frozen `xCon/generated/` config) → `objcopy` to `.bin`/`.hex`.
 
-**The link model.** `generated/linker.cmd` is only a *fragment* — it has the
+**The link model.** `xCon/generated/linker.cmd` is only a *fragment* — it has the
 `.resetVecs`/`xdc.meta` sections, symbol aliases, and `ENTRY(_c_int00)`, but **no
 `MEMORY{}`**. So the link uses two `-T` scripts, base first:
 
 ```
--Wl,-T,linker/tm4c129encpdt.lds   # MEMORY map + REGION aliases + standard sections
--Wl,-T,generated/linker.cmd       # the configuro fragment, layered on top
+-Wl,-T,xCon/linker/tm4c129encpdt.lds   # MEMORY map + REGION aliases + standard sections
+-Wl,-T,xCon/generated/linker.cmd       # the configuro fragment, layered on top
 ```
 
 `tm4c129encpdt.lds` (FLASH 1 MB @ 0x0, SRAM 256 KB @ 0x20000000) is adapted from
 the TI-RTOS GNU example `DK_TM4C129X.lds`; the two-script order mirrors TI-RTOS
-`makedefs`. All objects and libraries are provided by CMake from `third_party/`
+`makedefs`. All objects and libraries are provided by CMake from `xCon/third_party/`
 (not via the fragment's old `INPUT()` block), keeping the build self-contained.
 The link group is: from-source `sysbios` + `tivaware`, the prebuilt driver/WiFi/
 ports/RTS/Boot `.am4fg`, then `-lc -lgcc -lm -lnosys`. (`-lnosys`, not the
@@ -189,7 +189,7 @@ duplicates, the `rtsv7M.am4fg` / `CPUcpsie` / `initialise_monitor_handles` /
   driver is **prebuilt-only** (no source), so this can't be fully escaped — a
   watch-item for link/runtime behaviour.
 - **C-library I/O is on UART0, not semihosting.** The build links `-lnosys` and
-  `src/syscalls_uart.c` retargets `_write`/`_isatty`/`_sbrk` (+ a no-op
+  `xCon/sysbios/syscalls_uart.c` retargets `_write`/`_isatty`/`_sbrk` (+ a no-op
   `initialise_monitor_handles`) to UART0, so `printf`/`malloc` run with no
   debugger. Output appears once `UARTStdioConfig(0,...)` has run. See
   [uart-console-retarget.md](uart-console-retarget.md).
@@ -202,8 +202,8 @@ The full firmware **links end-to-end**; `random.out`/`.bin`/`.hex` are produced
 from a clean tree. Still to do (none block the build):
 
 - Remove the legacy CCS files (`.cproject`, `.ccsproject`, `.project`,
-  `makefile.defs`, `.config/`, `targetConfigs/`). Keep `src/` — it now holds
-  `newlib_locks.c` and `syscalls_uart.c`.
+  `makefile.defs`, `.config/`, `targetConfigs/`). SYS/BIOS support code now
+  lives under `xCon/sysbios/`.
 - Clean unused vars from `CMakePresets.json` (`TI_ROOT`/`TIRTOS_INSTALL`/
   `TIVAWARE_INSTALL`).
 
@@ -214,8 +214,8 @@ from a clean tree. Still to do (none block the build):
 
 ## 6. Maintenance
 
-Regenerate (§3.5) **only** when you change kernel configuration in `random.cfg`
+Regenerate (§3.5) **only** when you change kernel configuration in `xCon/sysbios/random.cfg`
 (tick period, heap, statically-defined Hwis, the set of BIOS modules). Ordinary
 app changes — adding tasks via `Task_create`, editing drivers — never require it.
-After regenerating, re-sync the source list/feature defines in `cmake/sysbios.cmake`
+After regenerating, re-sync the source list/feature defines in `xCon/sysbios/sysbios.cmake`
 if the module set changed, then rebuild.

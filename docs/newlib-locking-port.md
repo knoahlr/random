@@ -1,7 +1,7 @@
 # Porting SYS/BIOS C-library (newlib) locking to arm-none-eabi-gcc 13.2
 
 This documents a non-obvious incompatibility hit during the CMake/GNU migration
-and the fix applied. Read it before touching `src/newlib_locks.c`, the `#if 0`
+and the fix applied. Read it before touching `xCon/sysbios/newlib_locks.c`, the `#if 0`
 block in the generated config, or upgrading the toolchain / SYS/BIOS.
 
 ## TL;DR
@@ -15,7 +15,7 @@ block in the generated config, or upgrading the toolchain / SYS/BIOS.
   instead calls a small set of older **reent-model** global hooks.
 - Result: the generated `__libc_lock_*` code is dead *and* doesn't compile
   (`lock->sem` on an `int`). We **disable** it and provide the hooks this newlib
-  actually calls, backed by a BIOS `GateMutex`, in `src/newlib_locks.c`.
+  actually calls, backed by a BIOS `GateMutex`, in `xCon/sysbios/newlib_locks.c`.
 
 ## Why "compiled with the same gcc" doesn't make it compatible
 
@@ -74,7 +74,7 @@ the ones to implement.
 
 ### 1. Disable the obsolete glue in the generated config
 
-`generated/package/cfg/random_pm4fg.c` contains the
+`xCon/generated/package/cfg/random_pm4fg.c` contains the
 `ti.sysbios.rts.gnu.ReentSupport TEMPLATE` block. We keep `__getreent()` (it is
 correct for this newlib — gives each BIOS Task its own `_reent`: per-task `errno`,
 stdio buffers, etc.) and wrap only the `__libc_lock_*` functions in `#if 0`.
@@ -86,7 +86,7 @@ banner). If you regenerate by hand, re-apply it or re-run that script.
 
 ### 2. Implement the hooks this newlib actually calls
 
-`src/newlib_locks.c` overrides newlib's default no-op global lock hooks with a
+`xCon/sysbios/newlib_locks.c` overrides newlib's default no-op global lock hooks with a
 single recursive BIOS `GateMutex`:
 
 | Hook | Guards |
@@ -123,11 +123,11 @@ Design notes (see the source for detail):
 
 ### 3. Wire into CMake
 
-`src/newlib_locks.c` is added to `APP_SOURCES` in `CMakeLists.txt`.
+`xCon/sysbios/newlib_locks.c` is added to `APP_SOURCES` in `CMakeLists.txt`.
 
 ## Verification
 
-`generated/package/cfg/random_pm4fg.c` and `src/newlib_locks.c` both compile
+`xCon/generated/package/cfg/random_pm4fg.c` and `xCon/sysbios/newlib_locks.c` both compile
 cleanly under gcc 13.2 (`cmake --build --preset arm-gcc`). The earlier
 `request for member 'sem' in something not a structure` errors are gone.
 

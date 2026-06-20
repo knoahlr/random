@@ -2,7 +2,7 @@
 # targeting the TM4C129ENCPDT (Cortex-M4F, single-precision FPU).
 #
 # Usage:
-#   cmake -B build -DCMAKE_TOOLCHAIN_FILE=cmake/toolchain-arm-none-eabi.cmake ...
+#   cmake -B build -DCMAKE_TOOLCHAIN_FILE=xCon/cmake/toolchain-arm-none-eabi.cmake ...
 # or via the "arm-gcc" preset in CMakePresets.json.
 
 set(CMAKE_SYSTEM_NAME      Generic)

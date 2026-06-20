@@ -2,9 +2,9 @@
 
 This project no longer needs Code Composer Studio or XDCtools to **build**. The
 SYS/BIOS static configuration is generated **once** by XDCtools `configuro`,
-committed under `generated/`, and from then on compiled as ordinary C by CMake.
+committed under `xCon/generated/`, and from then on compiled as ordinary C by CMake.
 
-You only need this document if you change kernel configuration in `random.cfg`
+You only need this document if you change kernel configuration in `xCon/sysbios/random.cfg`
 (tick period, heap size, statically-defined interrupts, which BIOS modules are
 pulled in, etc.) and therefore must regenerate. Day-to-day application changes
 (adding tasks via `Task_create`, editing drivers, etc.) do **not** require
@@ -15,12 +15,12 @@ regeneration — see [BUILD.md](../BUILD.md).
 ## 1. The mental model (RTSC / XDC in one minute)
 
 SYS/BIOS is an **RTSC package**. You don't configure it in C; you configure it
-in a meta-language script (`random.cfg`, written in JavaScript/Rhino). A tool
+in a meta-language script (`xCon/sysbios/random.cfg`, written in JavaScript/Rhino). A tool
 called `configuro` (part of XDCtools) reads that script plus the BIOS packages
 and **emits C + linker artifacts** that embody your configuration.
 
 ```
-random.cfg ──(configuro)──▶  random_pm4fg.c   (static kernel config, C)
+xCon/sysbios/random.cfg ──(configuro)──▶  random_pm4fg.c   (static kernel config, C)
    +                         random_pm4fg.h
 BIOS packages               linker.cmd        (GNU linker script)
    +                         compiler.opt      (include paths + -D defines)
@@ -36,7 +36,7 @@ just a **code generator** that runs once.
 
 | Artifact | What it is | Who consumes it |
 | --- | --- | --- |
-| `random_pm4fg.c` / `.h` | The static kernel image in C: the **Hwi interrupt vector table**, the `Clock` tick + `Timer`, the BIOS heap (`BIOS.heapSize`), the `SysMin` output buffer, and the module state for `Task`/`Semaphore`/`Mailbox`/`Queue`/`Idle`/`Error`/`Text`. This is the C embodiment of `random.cfg`. | Compiled into the app by CMake. |
+| `random_pm4fg.c` / `.h` | The static kernel image in C: the **Hwi interrupt vector table**, the `Clock` tick + `Timer`, the BIOS heap (`BIOS.heapSize`), the `SysMin` output buffer, and the module state for `Task`/`Semaphore`/`Mailbox`/`Queue`/`Idle`/`Error`/`Text`. This is the C embodiment of `xCon/sysbios/random.cfg`. | Compiled into the app by CMake. |
 | `linker.cmd` | A **GNU ld linker script**: TM4C129ENCPDT memory map (FLASH @ 0x0, SRAM @ 0x2000_0000), section placement (`.resetVecs` at 0, `.text`, `.bss`, `.data`, `.stack`, heap), and the library `GROUP`. | Passed to the linker via `-T`. |
 | `compiler.opt` | The exact `-I` include roots and `-D` defines (e.g. `xdc_target_types__`, `xdc_target_name__=M4F`, and the module `__D` feature defines) so the app + generated config compile **consistently** with the kernel. | `CMakeLists.txt` harvests `-I`/`-D` from it. |
 | `package/cfg/random_pm4fg.src/sysbios/makefile` | A standalone makefile listing the **29 SYS/BIOS source files** (25 `.c` + 4 `.sv7M` assembly) configuro selected for *this* config, plus the `-D` feature flags they must be built with. | We mirror this file list + flags into the CMake `sysbios` static-library target. |
@@ -65,7 +65,7 @@ regeneration does.
 
 ---
 
-## 4. Required `random.cfg` edits for the GNU target
+## 4. Required `xCon/sysbios/random.cfg` edits for the GNU target
 
 These are already applied in this repo. If you start from a fresh TI example
 `.cfg` you will need them again, because the stock files assume the TI compiler:
@@ -112,7 +112,7 @@ xs --xdcpath="<bios>/packages;<tidrivers>/packages;<ndk>/packages;<xdctools>/pac
    -p ti.platforms.tiva:TM4C129ENCPDT \  # the platform (chip + memory map)
    -r release \
    -o generated \                     # output directory
-   random.cfg
+   xCon/sysbios/random.cfg
 ```
 
 Key arguments:
@@ -130,13 +130,13 @@ contain `C:/...` paths; the helper script converts them to `/mnt/c/...`. With th
 
 ## 6. After regenerating
 
-1. Confirm `generated/` contains `random_pm4fg.c`, `random_pm4fg.h`, and the
+1. Confirm `xCon/generated/` contains `random_pm4fg.c`, `random_pm4fg.h`, and the
    linker script (`linker.cmd` or `*_pm4fg.cmd`).
 2. If the **set of BIOS modules changed**, re-check the source list in
-   `generated/package/cfg/random_pm4fg.src/sysbios/makefile` against the
+   `xCon/generated/package/cfg/random_pm4fg.src/sysbios/makefile` against the
    `sysbios` target's file list in `CMakeLists.txt`, and sync the `-D` feature
    defines (`BIOS_DEFS` in that makefile).
-3. Commit the updated `generated/` directory.
+3. Commit the updated `xCon/generated/` directory.
 4. `cmake --build --preset arm-gcc` and verify it links.
 
 ---

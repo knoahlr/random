@@ -7,7 +7,7 @@ build is pure CMake.
 
 ## Why there is a one-time generation step
 
-The SYS/BIOS kernel configuration in `random.cfg` (interrupt vector table,
+The SYS/BIOS kernel configuration in `xCon/sysbios/random.cfg` (interrupt vector table,
 Clock tick, heap, statically-built modules) is emitted as a generated C file by
 TI's `configuro` tool. SYS/BIOS cannot be configured by hand the way FreeRTOS
 can, so we generate that file once and commit it. The application itself creates
@@ -28,15 +28,15 @@ The TI SDKs are expected under `/mnt/c/ti` (Windows install, used via WSL):
 - `tirtos_tivac_2_16_00_08`   (SYS/BIOS, TI drivers, SimpleLink WiFi, NDK)
 - `TivaWare_C_Series-2.2.0.295`
 
-## Step 1 — Generate the BIOS config (run once, and after any `random.cfg` change)
+## Step 1 — Generate the BIOS config (run once, and after any `xCon/sysbios/random.cfg` change)
 
 ```bash
 GNU_TOOLS=/usr/lib/arm-none-eabi ./tools/generate-bios-config.sh
 ```
 
 This runs `configuro` for the `gnu.targets.arm.M4F` target, writes the generated
-config + `compiler.opt` + linker command file into `generated/`, and converts the
-Windows paths it emits into WSL paths. Commit the `generated/` directory.
+config + `compiler.opt` + linker command file into `xCon/generated/`, and converts the
+Windows paths it emits into WSL paths. Commit the `xCon/generated/` directory.
 
 > Adjust the install paths and `GNU_TOOLS` at the top of the script if your
 > layout differs.
@@ -62,10 +62,10 @@ openocd -f board/ek-tm4c1294xl.cfg -c "program build/random.out verify reset exi
 
 ## Notes / things to expect on first build
 
-- The `generated/` artifacts are target-specific. If you switch compilers or
+- The `xCon/generated/` artifacts are target-specific. If you switch compilers or
   targets, re-run Step 1.
 - `CMakeLists.txt` harvests include paths and defines from
-  `generated/compiler.opt` so the app compile matches the BIOS config exactly.
+  `xCon/generated/compiler.opt` so the app compile matches the BIOS config exactly.
 - The generated linker script pulls in the prebuilt BIOS/driver/WiFi/NDK
   libraries; TivaWare `driverlib` + `uartstdio` are compiled from source.
 - First link may surface a few missing-symbol or section-placement issues that

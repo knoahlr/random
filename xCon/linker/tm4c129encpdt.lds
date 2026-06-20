@@ -4,10 +4,10 @@
  *  standard sections. Adapted from the TI-RTOS GNU example DK_TM4C129X.lds
  *  (same 1 MB FLASH @ 0x0 / 256 KB SRAM @ 0x20000000 layout).
  *
- *  This is passed as the FIRST -T script; generated/linker.cmd (the configuro
+ *  This is passed as the FIRST -T script; xCon/generated/linker.cmd (the configuro
  *  fragment: .resetVecs/.bootVecs/xdc.meta + symbol aliases + ENTRY) is layered
  *  on top as the SECOND -T, exactly as the TI-RTOS GNU makedefs does:
- *      -Wl,-T,tm4c129encpdt.lds  ...  -Wl,-T,generated/linker.cmd
+ *      -Wl,-T,tm4c129encpdt.lds  ...  -Wl,-T,xCon/generated/linker.cmd
  */
 MEMORY
 {
@@ -94,7 +94,7 @@ SECTIONS {
     } > REGION_BSS AT> REGION_BSS
 
     /* No size reserved: malloc/free resolve to the SYS/BIOS heap (HeapMem, sized
-     * in random.cfg), so newlib shares the RTOS heap rather than an _sbrk one. */
+     * in xCon/sysbios/random.cfg), so newlib shares the RTOS heap rather than an _sbrk one. */
     .heap : {
         __heap_start__ = .;
         end = __heap_start__;

@@ -32,7 +32,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
-#include "utils/cmdline.h"
+#include "console/cmdline.h"
 
 //*****************************************************************************
 //

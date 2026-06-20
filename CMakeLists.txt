@@ -4,23 +4,25 @@ project(random C ASM)
 
 # ---------------------------------------------------------------------------
 # This build is self-contained: all SDK dependencies are vendored under
-# third_party/ (see tools/vendor-sdk.sh). Only the one-time XDC-generated
-# kernel config (generated/) comes from the bootstrap step
+# xCon/third_party/ (see tools/vendor-sdk.sh). Only the one-time XDC-generated
+# kernel config (xCon/generated/) comes from the bootstrap step
 # (see docs/regenerating-sysbios-config.md).
 # ---------------------------------------------------------------------------
 
-set(TP  ${CMAKE_SOURCE_DIR}/third_party)
+set(XCON ${CMAKE_SOURCE_DIR}/xCon)
+set(TP  ${XCON}/third_party)
 set(SDK ${TP}/sdk)
 set(WIFI ${SDK}/tidrivers/packages/ti/mw/wifi/cc3x00)
-set(GEN_DIR ${CMAKE_SOURCE_DIR}/generated CACHE PATH "XDC configuro output")
+set(GEN_DIR ${XCON}/generated CACHE PATH "XDC configuro output" FORCE)
 
 # ---------------------------------------------------------------------------
 # Shared include paths + defines used consistently by the kernel and the app.
 # ---------------------------------------------------------------------------
 add_library(sdk_config INTERFACE)
 target_include_directories(sdk_config INTERFACE
-    ${CMAKE_SOURCE_DIR}
-    ${CMAKE_SOURCE_DIR}/app
+    ${XCON}
+    ${XCON}/app
+    ${XCON}/bsp
     ${GEN_DIR}
     ${SDK}/bios/packages
     ${SDK}/xdc/packages
@@ -40,7 +42,7 @@ target_compile_definitions(sdk_config INTERFACE
 # ---------------------------------------------------------------------------
 # SYS/BIOS kernel, built from source (validates without the bootstrap).
 # ---------------------------------------------------------------------------
-include(cmake/sysbios.cmake)
+include(${XCON}/sysbios/sysbios.cmake)
 
 # ---------------------------------------------------------------------------
 # TivaWare driverlib + uartstdio, built from source (prebuilt .lib is TI-format).
@@ -74,18 +76,18 @@ set(SDK_PREBUILT_LIBS
 # Application. Requires the one-time XDC-generated config + linker script.
 # ---------------------------------------------------------------------------
 set(APP_SOURCES
-    app/main.c
-    EK_TM4C129EXL.c
-    app/comms/connection_manager.c
-    app/comms/server.c
-    app/comms/inet.c
-    app/comms/udp_discovery.c
-    app/input/gamepad_input.c
-    app/hardware/dc_motor_control.c
-    app/hardware/stepper_control.c
-    app/comms/uart_interface.c
-    src/newlib_locks.c   # C-library lock retargeting for gcc 13.2 newlib (see docs/newlib-locking-port.md)
-    src/syscalls_uart.c  # newlib stdio/_sbrk retarget off semihosting onto UART0 (see docs/uart-console-retarget.md)
+    ${XCON}/app/main.c
+    ${XCON}/bsp/EK_TM4C129EXL.c
+    ${XCON}/app/comms/connection_manager.c
+    ${XCON}/app/comms/server.c
+    ${XCON}/app/comms/inet.c
+    ${XCON}/app/comms/udp_discovery.c
+    ${XCON}/app/input/gamepad_input.c
+    ${XCON}/app/hardware/dc_motor_control.c
+    ${XCON}/app/hardware/stepper_control.c
+    ${XCON}/app/comms/uart_interface.c
+    ${XCON}/sysbios/newlib_locks.c   # C-library lock retargeting for gcc 13.2 newlib (see docs/newlib-locking-port.md)
+    ${XCON}/sysbios/syscalls_uart.c  # newlib stdio/_sbrk retarget off semihosting onto UART0 (see docs/uart-console-retarget.md)
 )
 
 file(GLOB GEN_CFG_SRC ${GEN_DIR}/package/cfg/random_pm4fg.c ${GEN_DIR}/*.c)
@@ -99,13 +101,13 @@ if(GEN_CFG_SRC AND GEN_LINKER)
         -Wl,--start-group
         sysbios tivaware ${SDK_PREBUILT_LIBS}
         # -lnosys (not -lrdimon): no semihosting. C-library I/O is retargeted to
-        # UART0 in src/syscalls_uart.c (_write/_sbrk + a no-op initialise_monitor_handles).
+        # UART0 in xCon/sysbios/syscalls_uart.c (_write/_sbrk + a no-op initialise_monitor_handles).
         -lc -lgcc -lm -lnosys
         -Wl,--end-group
     )
     # Base memory map + standard sections first, then the configuro fragment
     # (.resetVecs/xdc.meta/symbol aliases/ENTRY) -- mirrors TI-RTOS GNU makedefs.
-    set(BASE_LDS ${CMAKE_SOURCE_DIR}/linker/tm4c129encpdt.lds)
+    set(BASE_LDS ${XCON}/linker/tm4c129encpdt.lds)
     # Comma form (not "-T x") so CMake does not de-duplicate the repeated -T flag.
     target_link_options(random.out PRIVATE
         -Wl,-T,${BASE_LDS}
@@ -126,7 +128,7 @@ if(GEN_CFG_SRC AND GEN_LINKER)
         COMMENT "Generating .bin/.hex and size report")
 else()
     message(WARNING
-        "generated/ kernel config not found -- building libraries only.\n"
+        "xCon/generated/ kernel config not found -- building libraries only.\n"
         "Run the one-time bootstrap to produce random_pm4fg.c + linker.cmd "
         "(see docs/regenerating-sysbios-config.md), then reconfigure.")
 endif()

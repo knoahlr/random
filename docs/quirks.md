@@ -25,9 +25,9 @@ lacks these, and symlink shims don't fully satisfy it. **Fix:** install the
 XDCtools variant that **bundles its own JRE** (ships Java 8). Point `XDCTOOLS=` at
 it (here: `/opt/ti/xdctools_3_32_00_06_core_jre/xdctools_3_32_00_06_core`).
 
-### `random.cfg:NNN TypeError: Cannot set property "loadAddress" of undefined`
+### `xCon/sysbios/random.cfg:NNN TypeError: Cannot set property "loadAddress" of undefined`
 **Cause:** the gnu target doesn't pre-populate `Program.sectMap[".resetVecs"]`.
-**Fix:** guard it in `random.cfg`:
+**Fix:** guard it in `xCon/sysbios/random.cfg`:
 ```js
 if (Program.sectMap[".resetVecs"] === undefined) {
     Program.sectMap[".resetVecs"] = new Program.SectionSpec();
@@ -45,7 +45,7 @@ if (Program.sectMap[".resetVecs"] === undefined) {
 ### No prebuilt SYS/BIOS archives (only `.mak` recipes)
 **Cause:** this SYS/BIOS distribution ships **source only**. **Fix:** compile the
 kernel from source — configuro selects a 29-file subset, mirrored in
-`cmake/sysbios.cmake`. (Drivers/WiFi/RTS *do* ship prebuilt `.am4fg`.)
+`xCon/sysbios/sysbios.cmake`. (Drivers/WiFi/RTS *do* ship prebuilt `.am4fg`.)
 
 ### `Timer.c`: `ti/catalog/arm/peripherals/timers/timer.h: No such file`
 **Cause:** kernel source needs `ti/catalog` headers. **Fix:** vendor them
@@ -62,13 +62,13 @@ it opaque. **Fix:** neutralized (vendored copy + idempotent SDK patch in
 struct `_LOCK_T`; gcc 13.2's newlib (built without `_RETARGETABLE_LOCKING`) makes
 `_LOCK_T` an `int` and never calls those hooks. **Fix:** the block is `#if 0`'d
 (idempotent in `generate-bios-config.sh`); real locking lives in
-`src/newlib_locks.c`. Full story: [newlib-locking-port.md](newlib-locking-port.md).
+`xCon/sysbios/newlib_locks.c`. Full story: [newlib-locking-port.md](newlib-locking-port.md).
 
 ### `multiple definition of __sfp_lock_acquire` / `__sfp_lock_release`
 **Cause:** unlike `__malloc_lock`/`__env_lock`/`__tz_lock` (each in its own
 `libc.a` object, so overridable), newlib keeps `__sfp_lock_*`/`__sinit_lock_*` in
 `findfp.o` *with* essential stdio that's always linked — so redefining them is a
-collision, not an override. **Fix:** don't override them; `src/newlib_locks.c`
+collision, not an override. **Fix:** don't override them; `xCon/sysbios/newlib_locks.c`
 provides only malloc/env/tz.
 
 ---
@@ -105,7 +105,7 @@ default).
 forced on) does `#define timeval SlTimeval_t`, `#define fd_set SlFdSet_t`, and
 defines its own `select()`. Pulling in newlib's `<sys/select.h>` in the same TU
 collides. The app **uses BSD socket names**, so SimpleLink's layer must stay on.
-**Fix:** don't pull newlib's `<sys/select.h>`. In `app/main.c` that meant removing
+**Fix:** don't pull newlib's `<sys/select.h>`. In `xCon/app/main.c` that meant removing
 an **unused** `#include <time.h>` (which chained `time.h → sys/types.h →
 sys/select.h`). Time comes from SYS/BIOS `Seconds`.
 
@@ -114,9 +114,9 @@ sys/select.h`). Time comes from SYS/BIOS `Seconds`.
 ## Linking the application
 
 ### `memory region 'REGION_TEXT' not declared`
-**Cause:** `generated/linker.cmd` is only a **fragment** — no `MEMORY{}`; it
+**Cause:** `xCon/generated/linker.cmd` is only a **fragment** — no `MEMORY{}`; it
 references `REGION_TEXT`/`REGION_DATA` from a base script. **Fix:** added
-`linker/tm4c129encpdt.lds` (FLASH 1 MB @ 0x0, SRAM 256 KB @ 0x20000000, REGION
+`xCon/linker/tm4c129encpdt.lds` (FLASH 1 MB @ 0x0, SRAM 256 KB @ 0x20000000, REGION
 aliases, standard sections), adapted from TI's `DK_TM4C129X.lds`.
 
 ### `linker.cmd: contains output sections; did you forget -T?`
@@ -131,7 +131,7 @@ input file. **Fix:** use the comma form — `-Wl,-T,base.lds` and
 `random_pm4fg.om4fg` + `sysbios.am4fg`, which duplicate our from-source
 `random_pm4fg.c.obj` + `libsysbios.a` (and uses absolute `/mnt/c/ti` paths).
 **Fix:** strip the `INPUT()` block (idempotent in `generate-bios-config.sh`);
-CMake provides all objects/libs from `third_party/`.
+CMake provides all objects/libs from `xCon/third_party/`.
 
 ### `undefined symbol 'xdc_runtime_System_asprintf_va__F'` (and the other `__F`)
 **Cause:** the config provides the `__E` printf entry points but their `__F`
@@ -157,7 +157,7 @@ doesn't define `gcc`, so `cpu.c` compiled to an **empty object**. **Fix:**
 runtime — semihosting `_write`/`_sbrk` traps need a debugger attached, so a
 standalone board hangs on the first `printf()`/`malloc()`.
 **Current fix:** link **`-lnosys`** and retarget C-library I/O to **UART0** (the
-ICDI virtual COM port) in `src/syscalls_uart.c`: override `_write`→UART0,
+ICDI virtual COM port) in `xCon/sysbios/syscalls_uart.c`: override `_write`→UART0,
 `_isatty`/`_fstat` (line-buffered stdout), a no-op `initialise_monitor_handles`,
 and a guard `_sbrk` (malloc is BIOS-backed). No config regeneration needed. Full
 write-up: [uart-console-retarget.md](uart-console-retarget.md).
@@ -165,7 +165,7 @@ write-up: [uart-console-retarget.md](uart-console-retarget.md).
 ### `printf()` works under the debugger but a standalone board hangs / prints nothing
 **Cause:** C-library I/O still on semihosting (`-lrdimon` + `SemiHostSupport`) —
 the `BKPT`/`SVC` traps are serviced only by an attached debugger. **Fix:** the
-UART0 retarget above (`-lnosys` + `src/syscalls_uart.c`). After it, output needs
+UART0 retarget above (`-lnosys` + `xCon/sysbios/syscalls_uart.c`). After it, output needs
 UART0 up: `printf` before `UARTStdioConfig(0,...)` is dropped by the `UARTEN`
 gate (move the config into board init for earliest boot logs).
 
