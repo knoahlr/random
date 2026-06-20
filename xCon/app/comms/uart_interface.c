@@ -72,6 +72,17 @@ void uart_messaging_service(UArg arg0){
     (void)arg0;
     uart_log_msg msg;
 
+    /*
+     * Proof-of-life banner: written directly (not via the queue) the moment the
+     * consumer task starts, so it appears right after reset independent of any
+     * producer or WiFi bring-up. If this shows on the console, the UART0 path
+     * (clock, pins, Hwi, UART_BUFFERED, baud) is good and any later silence is a
+     * producer-side problem.
+     */
+    const char banner[] = "\r\n[boot] UART console up @115200 8N1\r\n";
+    UARTwrite(banner, sizeof(banner) - 1);
+    GPIO_toggle(Board_LED0);
+
     for(;;) {
         if (Mailbox_pend(uart_log_mbox, &msg, BIOS_WAIT_FOREVER)) {
             UARTwrite(msg.data, msg.len);
