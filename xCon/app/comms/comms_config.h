@@ -3,8 +3,8 @@
 
 #define APP_DEVICE_ID "tm4c129x-001"
 
-#define APP_DEFAULT_WIFI_SSID "Noah"
-#define APP_DEFAULT_WIFI_PASS "noah3269"
+#define APP_DEFAULT_WIFI_SSID "tatakae"
+#define APP_DEFAULT_WIFI_PASS "itadoriyuji"
 
 #define APP_TCP_SERVER_PORT 26543
 #define APP_TCP_PACKET_SIZE 256

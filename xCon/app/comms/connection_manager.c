@@ -373,7 +373,7 @@ void cm_connection_mgr(UArg arg0, UArg arg1){
             }
         } else {
             GPIO_toggle(Board_LED1);   // blink while not fully up
-            if ((wait_ticks++ % 10) == 0) {
+            if ((wait_ticks++ % 1000) == 0) {
                 uart_log("[wifi] waiting for connection (assoc=%d ip=%d)\n",
                          connection_state.device_connected, connection_state.ip_acquired);
             }

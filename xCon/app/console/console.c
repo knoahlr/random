@@ -87,14 +87,15 @@ static void console_run_command(void)
 {
     int rc;
 
-    console_puts("\r\n");
     prompt_visible = false;
 
     if (console_input_len == 0) {
+        console_puts("\r\n");
         console_prompt();
         return;
     }
 
+    console_puts("\r\n");
     console_input[console_input_len] = '\0';
     rc = CmdLineProcess(console_input);
     switch (rc) {
@@ -146,6 +147,7 @@ void console_init(void)
 {
     console_input_len = 0;
     prompt_visible = false;
+    UARTEchoSet(false);
     console_prompt();
 }
 
