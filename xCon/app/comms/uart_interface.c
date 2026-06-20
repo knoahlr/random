@@ -6,10 +6,11 @@
  *
  * Console logging is decoupled: any task formats a line with uart_log() which
  * enqueues it (non-blocking) onto a SYS/BIOS Mailbox. uart_messaging_service
- * owns UART0, drains that queue with UARTwrite, and polls the interrupt-filled
- * RX ring for command input. This serializes normal output from concurrent
- * producers and keeps producers off the wire. uartstdio is built UART_BUFFERED,
- * so UARTwrite itself is non-blocking (writes to the TX ring buffer).
+ * owns UART0, drains that queue with UARTwrite, and consumes command input when
+ * the UART RX ISR posts the service semaphore. This serializes normal output
+ * from concurrent producers and keeps producers off the wire. uartstdio is
+ * built UART_BUFFERED, so UARTwrite itself is non-blocking (writes to the TX
+ * ring buffer).
  *
  * UART0 itself is brought up at boot in EK_TM4C129EXL_initUART(); see
  * docs/uart-console-retarget.md.
@@ -24,7 +25,7 @@
 
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Mailbox.h>
-#include <ti/sysbios/knl/Task.h>
+#include <ti/sysbios/knl/Semaphore.h>
 
 #include <ti/drivers/GPIO.h>
 
@@ -43,13 +44,28 @@ typedef struct {
 
 static Mailbox_Struct  uart_log_mbox_struct;
 static Mailbox_Handle  uart_log_mbox;
+static Semaphore_Struct uart_service_sem_struct;
+static Semaphore_Handle uart_service_sem;
+
+void uart_console_rx_isr_hook(void)
+{
+    if (uart_service_sem != NULL) {
+        Semaphore_post(uart_service_sem);
+    }
+}
 
 void uart_log_init(void){
     Mailbox_Params params;
+    Semaphore_Params sem_params;
+
     Mailbox_Params_init(&params);
     Mailbox_construct(&uart_log_mbox_struct, sizeof(uart_log_msg),
                       UART_LOG_QUEUE_DEPTH, &params, NULL);
     uart_log_mbox = Mailbox_handle(&uart_log_mbox_struct);
+
+    Semaphore_Params_init(&sem_params);
+    Semaphore_construct(&uart_service_sem_struct, 0, &sem_params);
+    uart_service_sem = Semaphore_handle(&uart_service_sem_struct);
 }
 
 void uart_log(const char *fmt, ...){
@@ -70,7 +86,9 @@ void uart_log(const char *fmt, ...){
                                            : (uint16_t)n;
 
     /* Non-blocking: drop the line rather than stall the producer if the queue is full. */
-    Mailbox_post(uart_log_mbox, &msg, BIOS_NO_WAIT);
+    if (Mailbox_post(uart_log_mbox, &msg, BIOS_NO_WAIT)) {
+        Semaphore_post(uart_service_sem);
+    }
 }
 
 void uart_log_fatal(const char *s){
@@ -121,6 +139,6 @@ void uart_messaging_service(UArg arg0){
         }
 
         console_poll();
-        Task_sleep(1);
+        Semaphore_pend(uart_service_sem, BIOS_WAIT_FOREVER);
     }
 }
