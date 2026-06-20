@@ -59,7 +59,16 @@
 #include <driverlib/uart.h>
 #include <driverlib/udma.h>
 
+#include <utils/uartstdio.h>
+
 #include "EK_TM4C129EXL.h"
+
+/*
+ * System clock the catalog Boot module establishes at reset
+ * (random_pm4fg.c: sysCtlClockFreqSet(..., 120000000) from a 25 MHz crystal /
+ * 480 MHz VCO PLL). UARTStdioConfig needs this value to derive the baud divisor.
+ */
+#define EK_TM4C129EXL_SYSTEM_CLOCK  120000000U
 
 #ifndef TI_DRIVERS_UART_DMA
 #define TI_DRIVERS_UART_DMA 0
@@ -823,6 +832,15 @@ void EK_TM4C129EXL_initUART(void)
     EK_TM4C129EXL_initDMA();
 #endif
     UART_init();
+
+    /*
+     * Bring up UART0 (the ICDI virtual COM port) as the console at boot, so the
+     * earliest UARTprintf()/printf() output reaches the wire. UARTStdioConfig
+     * enables the UART0 peripheral and sets it running; the GPIO pin mux above
+     * is the only part it leaves to us. Without this, the UARTEN gate in
+     * syscalls_uart.c drops every console write until something configures UART0.
+     */
+    UARTStdioConfig(0, 115200, EK_TM4C129EXL_SYSTEM_CLOCK);
 }
 
 /*

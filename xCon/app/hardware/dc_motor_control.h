@@ -1,5 +1,5 @@
 /*
- * hardwareController.h
+ * dc_motor_control.h
  *
  *  Created on: Jul 20, 2021
  *      Author: Noah Workstation
@@ -27,6 +27,6 @@
 
 void pwm_motor_proc_init(UArg arg0, UArg arg1);
 
-void log_gamepad_input(Gamepad *gamepadState);
+void log_gamepad_input(Gamepad *gamepad_state);
 
-void update_motor_state();
+void update_motor_state(void);

@@ -11,8 +11,8 @@
 #include <ti/sysbios/knl/Semaphore.h>
 
 /*
-     Server Method to contionously listening for commands.
-     Gamepad input sampled every 500ms
+     Server method to continuously listen for commands.
+     Gamepad input sampled every 500ms.
  */
 
 #define MAILBOX_TIMEOUT (20 * Clock_tickPeriod)
@@ -26,9 +26,6 @@ typedef enum {
 
 bool is_conn_active(int client_fd);
 
-void clock_func(UArg arg0);
-
-void server_task(UArg arg0, UArg arg1); 
+void server_task(UArg arg0, UArg arg1);
 
 void tcp_message_handler(int server, Mailbox_Handle mail);
-

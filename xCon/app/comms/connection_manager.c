@@ -19,16 +19,16 @@ const static bool erase_network_list = true;
 const static char default_hostname[] = APP_DEFAULT_WIFI_SSID;
 const static char default_pass[] = APP_DEFAULT_WIFI_PASS;
 
-static uint8_t apMacAddr[SL_MAC_ADDR_LEN];
-static uint8_t deviceMACAddress[SL_MAC_ADDR_LEN];
-static uint8_t deviceMACAddressLen = SL_MAC_ADDR_LEN;
+static uint8_t ap_mac_addr[SL_MAC_ADDR_LEN];
+static uint8_t device_mac_address[SL_MAC_ADDR_LEN];
+static uint8_t device_mac_address_len = SL_MAC_ADDR_LEN;
 static struct configured_profiles saved_profiles;
 
- static bool connected = false;
+static bool connected = false;
 
-bool deviceConnected = false;
-bool ipAcquired = false;
-bool smartConfigFlag = false;
+bool device_connected = false;
+bool ip_acquired = false;
+bool smart_config_flag = false;
 
 static struct connection_status connection_state;
 
@@ -44,11 +44,10 @@ static struct connection_status connection_state;
  */
 void SimpleLinkGeneralEventHandler(SlDeviceEvent_t *pDevEvent)
 {
-    printf("General Event Handler - ID=%d Sender=%d\n\n",
-	   pDevEvent->EventData.deviceEvent.status,  // status of the general event
-	   pDevEvent->EventData.deviceEvent.sender); // sender type
+    UARTprintf("General Event Handler - ID=%d Sender=%d\n\n",
+           pDevEvent->EventData.deviceEvent.status,  // status of the general event
+           pDevEvent->EventData.deviceEvent.sender); // sender type
     UARTprintf("General event occurred, Event ID: %x\n", pDevEvent->Event);
-    printf("General event occurred, Event ID: %x\n", pDevEvent->Event);
 }
 
 /*
@@ -73,21 +72,19 @@ void SimpleLinkHttpServerCallback(SlHttpServerEvent_t *pHttpEvent,
 void SimpleLinkNetAppEventHandler(SlNetAppEvent_t *pArgs)
 {
     if(pArgs == NULL){
-	printf("Net APP Event Handler callback is NULL");
-	return;
+        UARTprintf("Net APP Event Handler callback is NULL");
+        return;
     }
     switch (pArgs->Event) {
         case SL_NETAPP_IPV4_IPACQUIRED_EVENT:
-            connection_state.ipAcquired = true;
-            connection_state.ipv4Address = pArgs->EventData.ipAcquiredV4.ip;
-            UARTprintf("\nIP Address Acquired: %u\n",connection_state.ipv4Address);
-            printf("\nIP Address Acquired: %u\n",connection_state.ipv4Address);
+            connection_state.ip_acquired = true;
+            connection_state.ipv4_address = pArgs->EventData.ipAcquiredV4.ip;
+            UARTprintf("\nIP Address Acquired: %u\n", connection_state.ipv4_address);
             break;
         case SL_NETAPP_IPV6_IPACQUIRED_EVENT:
-            connection_state.ipAcquired = true;
-            memcpy(connection_state.ipv6Address, pArgs->EventData.ipAcquiredV6.ip, 4);
-            printf("\nIP Address Acquired: %s\n",connection_state.ipv6Address);
-            UARTprintf("\nIP Address Acquired: %s\n",connection_state.ipv6Address);
+            connection_state.ip_acquired = true;
+            memcpy(connection_state.ipv6_address, pArgs->EventData.ipAcquiredV6.ip, 4);
+            UARTprintf("\nIP Address Acquired: %s\n", connection_state.ipv6_address);
         default:
             break;
     }
@@ -113,15 +110,14 @@ void SimpleLinkSockEventHandler(SlSockEvent_t *pSock)
  */
 void SimpleLinkWlanEventHandler(SlWlanEvent_t *pArgs)
 {
-    printf("WLAN EVENT:%d \n", pArgs->Event);
     UARTprintf("WLAN EVENT:%d \n", pArgs->Event);
 
     switch (pArgs->Event) {
         case SL_WLAN_CONNECT_EVENT:
-            connection_state.deviceConnected = true;
+            connection_state.device_connected = true;
             break;
         case SL_WLAN_DISCONNECT_EVENT:
-            connection_state.deviceConnected = false;
+            connection_state.device_connected = false;
             break;
         default:
             break;
@@ -129,7 +125,7 @@ void SimpleLinkWlanEventHandler(SlWlanEvent_t *pArgs)
 }
 
 
-void CM_configure_wifi_parameters(void) {
+void cm_configure_wifi_parameters(void) {
     int           mode;
     int           response;
     unsigned char param;
@@ -143,10 +139,7 @@ void CM_configure_wifi_parameters(void) {
     if (mode != ROLE_STA) {
         sl_WlanSetMode(ROLE_STA);
 
-        printf("Configuring Station mode. Mode: %d\n", ROLE_STA);
         UARTprintf("Configuring Station mode. Mode: %d\n", ROLE_STA);
-//        System_printf("Configuring Station mode. Mode: %d", ROLE_STA);
-//        System_flush();
         /* Restart network processor */
         sl_Stop(BIOS_WAIT_FOREVER);
         mode = sl_Start(0, 0, 0);
@@ -172,77 +165,71 @@ void CM_configure_wifi_parameters(void) {
     }
 
     /* Set connection variables to initial values */
-    deviceConnected = false;
-    ipAcquired = false;
+    device_connected = false;
+    ip_acquired = false;
 }
 
 
 //############################ End of SimpleLink Asynchronous Event Handlers #################################################
 
-Sl_WlanNetworkEntry_t CM_read_accesspoint_bssid(_u8* hostname, _u8* apMACAddress)
+Sl_WlanNetworkEntry_t cm_read_accesspoint_bssid(_u8* host_name, _u8* ap_mac_address)
 {
-    Sl_WlanNetworkEntry_t networkEntries[20];
-    _i8 validNetworkCount = sl_WlanGetNetworkList(0, 20, &networkEntries[0]);
-    _i8 ssidIndex = 0;
-    _i8 ssidCount = 0;
+    Sl_WlanNetworkEntry_t network_entries[20];
+    _i8 valid_network_count = sl_WlanGetNetworkList(0, 20, &network_entries[0]);
+    _i8 ssid_index = 0;
+    _i8 ssid_count = 0;
 
-    //extract hidden gotham village bssid and save into apMacAddr
-    for(;; ssidIndex++)
+    // extract hidden access point bssid and save into ap_mac_address
+    for(;; ssid_index++)
     {
-        if(strcmp(hostname, networkEntries[ssidIndex].ssid) == 0)
+        if(strcmp((char *)host_name, (char *)network_entries[ssid_index].ssid) == 0)
         {
-            memcpy(apMACAddress, &networkEntries[ssidIndex].bssid, sizeof(networkEntries[ssidIndex].bssid));
+            memcpy(ap_mac_address, &network_entries[ssid_index].bssid, sizeof(network_entries[ssid_index].bssid));
             break;
         }
 
-         ssidCount = validNetworkCount-ssidIndex-1;
-        if( ssidCount == 0 || validNetworkCount == -1)
+        ssid_count = valid_network_count - ssid_index - 1;
+        if( ssid_count == 0 || valid_network_count == -1)
         {
              Task_sleep(1000);
-             memset(&networkEntries[0], 0, sizeof(networkEntries)); //clear WiFi network entries.
-             validNetworkCount = sl_WlanGetNetworkList(0, 20, &networkEntries[0]); //
-             ssidIndex = -1;
+             memset(&network_entries[0], 0, sizeof(network_entries)); // clear WiFi network entries.
+             valid_network_count = sl_WlanGetNetworkList(0, 20, &network_entries[0]);
+             ssid_index = -1;
         }
     }
-    return networkEntries[ssidIndex];
+    return network_entries[ssid_index];
 }
 
-void CM_remove_all_connnection_profiles(){
+void cm_remove_all_connection_profiles(void){
 
    uint8_t delete_all_index = 255;
 
    int16_t ret = sl_WlanProfileDel(delete_all_index);
    if(ret < 0) {
-       System_printf("Failed to delete profiles\n");
-       System_flush();
+       UARTprintf("Failed to delete profiles\n");
        return;
    }
-   System_printf("Removing all saved profiles\n");
-   System_flush();
+   UARTprintf("Removing all saved profiles\n");
 }
 
-void CM_print_configured_profiles(){
+void cm_print_configured_profiles(void){
 
     if(saved_profiles.config_net_count){
         uint8_t profile_index = 0;
-        printf("\nSaved profiles found");
+        UARTprintf("\nSaved profiles found");
         for(; profile_index < saved_profiles.config_net_count; profile_index++){
             uint8_t profile_mac[6];
             memcpy(profile_mac, saved_profiles.profile_entries[profile_index].mac_address, sizeof(profile_mac));
-            System_printf("\t\nSSID: %s,\t\nPassword:%s \t\nMAC: %x\t\nSSID Len: %d\n", (char *)saved_profiles.profile_entries[profile_index].hostname,
-                          saved_profiles.profile_entries[profile_index].sec_params.Key,
-                          &profile_mac,
-                          saved_profiles.profile_entries[profile_index].host_name_len);
-            UARTprintf("\t\nSSID: %s,\t\nPassword:%s \t\nMAC: %x\t\nSSID Len: %d\n", (char *)saved_profiles.profile_entries[profile_index].hostname,
+            UARTprintf("\t\nSSID: %s,\t\nPassword:%s \t\nMAC: %x\t\nSSID Len: %d\n",
+                          (char *)saved_profiles.profile_entries[profile_index].hostname,
                           saved_profiles.profile_entries[profile_index].sec_params.Key,
                           &profile_mac,
                           saved_profiles.profile_entries[profile_index].host_name_len);
         }
-        System_flush();
     }
 }
 
-uint8_t CM_load_saved_profiles(){
+uint8_t cm_load_saved_profiles(void){
 
    uint8_t profile_index = 0;
    while(1){
@@ -262,27 +249,25 @@ uint8_t CM_load_saved_profiles(){
    return saved_profiles.config_net_count;
 }
 
-//int16_t CM_add_connection_profile(uint8_t *hostname, uint8_t *password, uint8_t host_name_len, uint8_t pass_len)
-int16_t CM_add_connection_profile(struct wlan_profile_info *profile)
+int16_t cm_add_connection_profile(struct wlan_profile_info *profile)
 {
-    _i16 wlanConnectRC = -123;
-    printf("Adding profile.\nHostname:%s\npassword:%s\n", profile->hostname, profile->sec_params.Key);
+    _i16 wlan_connect_rc = -123;
     UARTprintf("Adding profile.\nHostname:%s\npassword:%s\n", profile->hostname, profile->sec_params.Key);
 
     if(profile->sec_params.Type == SL_SEC_TYPE_OPEN) {
-        wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, NULL, NULL, profile->priority, 0);
+        wlan_connect_rc = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, NULL, NULL, profile->priority, 0);
     } else {
-        wlanConnectRC = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, &profile->sec_params, NULL, profile->priority, 0);
+        wlan_connect_rc = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, &profile->sec_params, NULL, profile->priority, 0);
     }
-    return wlanConnectRC;
+    return wlan_connect_rc;
 }
 
-void CM_connection_mgr(UArg arg0, UArg arg1){
+void cm_connection_mgr(UArg arg0, UArg arg1){
 
     Semaphore_Handle sem = (Semaphore_Handle)arg0;
     Queue_Handle uart_queue_handle = (Queue_Handle)arg1;
 
-    WiFi_Params        wifiParams;
+    WiFi_Params        wifi_params;
     WiFi_Handle        handle;
 
     saved_profiles.config_net_count = 0;
@@ -294,78 +279,73 @@ void CM_connection_mgr(UArg arg0, UArg arg1){
     GPIO_write(Board_LED1, Board_LED_OFF);
 
     /* Open WiFi driver */
-    WiFi_Params_init(&wifiParams);
-    wifiParams.bitRate = SPI_BIT_RATE;
-    handle = WiFi_open(Board_WIFI, Board_WIFI_SPI, NULL, &wifiParams);
+    WiFi_Params_init(&wifi_params);
+    wifi_params.bitRate = SPI_BIT_RATE;
+    handle = WiFi_open(Board_WIFI, Board_WIFI_SPI, NULL, &wifi_params);
     if (handle == NULL) {
         System_abort("WiFi driver failed to open.");
     }
 
-    CM_configure_wifi_parameters();
-    //CM_read_accesspoint_bssid(&_hostNambe[0], &apMacAddr[0]);
+    cm_configure_wifi_parameters();
 
-    sl_NetCfgGet(SL_MAC_ADDRESS_GET, NULL, &deviceMACAddressLen, (_u8 *)deviceMACAddress);
+    sl_NetCfgGet(SL_MAC_ADDRESS_GET, NULL, &device_mac_address_len, (_u8 *)device_mac_address);
 
-    //printing MAC Address of device
-    System_printf("MAC Address-");
+    // print the device MAC address
+    UARTprintf("MAC Address-");
     int byte = 0;
-    for(;byte< deviceMACAddressLen;byte++){
-        System_printf("%x:",deviceMACAddress[byte]);
+    for(; byte < device_mac_address_len; byte++){
+        UARTprintf("%x:", device_mac_address[byte]);
     }
-    System_printf("\n");
-    System_flush();
+    UARTprintf("\n");
 
     struct wlan_profile_info default_profile = { 0 };
     memcpy(default_profile.hostname, &default_hostname[0], strlen(default_hostname));
     memcpy(default_profile.password, &default_pass[0], strlen(default_pass));
     default_profile.sec_params.Key = &default_profile.password[0];
-    //default_profile.sec_params.Key = &default_profile.password[0];
-    default_profile.host_name_len = strlen(default_hostname); //sizeof(default_hostname);
-    default_profile.pass_len = strlen(default_pass); //sizeof(default_pass);
+    default_profile.host_name_len = strlen(default_hostname);
+    default_profile.pass_len = strlen(default_pass);
     default_profile.priority = 5;
     default_profile.sec_params.Type = SL_SEC_TYPE_WPA_WPA2;
     default_profile.sec_params.KeyLen = default_profile.pass_len;
 
     if(erase_network_list)
-        CM_remove_all_connnection_profiles();
+        cm_remove_all_connection_profiles();
 
-    uint8_t configured_access_point_count = CM_load_saved_profiles();
+    uint8_t configured_access_point_count = cm_load_saved_profiles();
     int16_t ret = -150;
     if(!configured_access_point_count)
-        ret = CM_add_connection_profile(&default_profile);
+        ret = cm_add_connection_profile(&default_profile);
 
-    printf("profile add rc: %d\n", ret);
-    configured_access_point_count = CM_load_saved_profiles();
+    UARTprintf("profile add rc: %d\n", ret);
+    configured_access_point_count = cm_load_saved_profiles();
 
     if(configured_access_point_count)
-        printf("\n%d configured access points found.",configured_access_point_count);
+        UARTprintf("\n%d configured access points found.", configured_access_point_count);
 
-    CM_print_configured_profiles();
+    cm_print_configured_profiles();
 
-    uint32_t connectionRetryCounter = 0;
+    uint32_t connection_retry_counter = 0;
 
     for(;;) {
 
         if(!configured_access_point_count){
-            //Log that no network is configured;
-            printf("No APs configured.");
+            // Log that no network is configured.
+            UARTprintf("No APs configured.");
 
         } else {
 
-            if ((connection_state.deviceConnected != true) || (connection_state.ipAcquired != true))
+            if ((connection_state.device_connected != true) || (connection_state.ip_acquired != true))
              {
-                 connectionRetryCounter++;
+                 connection_retry_counter++;
                  GPIO_toggle(Board_LED1);
                  struct log_uart *uart_log = (struct log_uart *)malloc(sizeof(struct log_uart));
                  if(uart_log != NULL) {
-                   snprintf(uart_log->data, sizeof(uart_log->data), "Connection trial: %d.\n", connectionRetryCounter);
-                   Queue_enqueue(uart_queue_handle,  &uart_log->elem);
+                   snprintf(uart_log->data, sizeof(uart_log->data), "Connection trial: %d.\n", connection_retry_counter);
+                   Queue_enqueue(uart_queue_handle, &uart_log->elem);
                  }
-                 int16_t ret = -150;
-                 ret = sl_WlanConnect(default_profile.hostname, default_profile.host_name_len,
-					      NULL, &default_profile.sec_params, NULL);
-                 printf("Connection trial: %d. Ret: %i\n",connectionRetryCounter, ret);
-                 UARTprintf("Connection trial: %d. Ret: %i\n",connectionRetryCounter, ret);
+                 int16_t ret = sl_WlanConnect(default_profile.hostname, default_profile.host_name_len,
+                                              NULL, &default_profile.sec_params, NULL);
+                 UARTprintf("Connection trial: %d. Ret: %d\n", connection_retry_counter, ret);
              } else {
                  // successful connection. Release sem to kick start server
                  if(!connected) {

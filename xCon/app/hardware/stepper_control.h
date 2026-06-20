@@ -1,5 +1,5 @@
 /*
- * StepperControl.h
+ * stepper_control.h
  *
  *  Created on: Mar 18, 2020
  *      Author: Noah Workstation
@@ -32,23 +32,23 @@
 #ifndef STEPPERCONTROL_H_
 #define STEPPERCONTROL_H_
 
-#define stepperIN1 GPIO_PIN_0
-#define stepperIN2 GPIO_PIN_1
-#define stepperIN3 GPIO_PIN_6
-#define stepperIN4 GPIO_PIN_7
+#define STEPPER_IN1 GPIO_PIN_0
+#define STEPPER_IN2 GPIO_PIN_1
+#define STEPPER_IN3 GPIO_PIN_6
+#define STEPPER_IN4 GPIO_PIN_7
 
-typedef enum stepperPhase
+typedef enum stepper_phase
 {
     PHASE1,
     PHASE2,
     PHASE3,
     PHASE4,
-}stepperPhase;
+} stepper_phase;
 
-void stepperInit();
+void stepper_init(void);
 
-void toggleStepper();
+void toggle_stepper(void);
 
-void fullStepperToggle();
+void full_stepper_toggle(void);
 
 #endif /* STEPPERCONTROL_H_ */

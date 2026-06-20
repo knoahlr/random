@@ -65,11 +65,11 @@
 #define STARTTIME 1718248069 //12/06/24
 
 
-static Task_Struct task_MotorControlStruct;
+static Task_Struct task_motor_control_struct;
 
 static Char server_stack[DEFAULT_SERVER_TASKSTACKSIZE];
-static Char task_ConnectionManagerStack[CM_TASKSTACKSIZE];
-static Char task_motorDutyStack[MOTOR_DUTY_TASKSTACKSIZE];
+static Char task_connection_manager_stack[CM_TASKSTACKSIZE];
+static Char task_motor_duty_stack[MOTOR_DUTY_TASKSTACKSIZE];
 
 
 /*
@@ -84,11 +84,11 @@ int main(void) {
     Task_Handle conn_mgr_handle;
     Task_Handle server_handle;
 
-    Semaphore_Handle semaphoreHandle = Semaphore_create(0, NULL, NULL);
-    Mailbox_Handle mailboxHandle = Mailbox_create(sizeof(Gamepad), 10, NULL, NULL);
+    Semaphore_Handle semaphore_handle = Semaphore_create(0, NULL, NULL);
+    Mailbox_Handle mailbox_handle = Mailbox_create(sizeof(Gamepad), 10, NULL, NULL);
     Queue_Handle uart_queue_handle = Queue_create(NULL, NULL);
 
-    if (!semaphoreHandle || !mailboxHandle || !uart_queue_handle) {
+    if (!semaphore_handle || !mailbox_handle || !uart_queue_handle) {
         System_abort("Failed to create RTOS synchronization objects");
     }
 
@@ -103,22 +103,22 @@ int main(void) {
     /* Motor control task. */
     Task_Params_init(&motor_control_params);
     motor_control_params.stackSize = MOTOR_DUTY_TASKSTACKSIZE;
-    motor_control_params.stack = task_motorDutyStack;
-    motor_control_params.arg0 = (UArg)mailboxHandle;
+    motor_control_params.stack = task_motor_duty_stack;
+    motor_control_params.arg0 = (UArg)mailbox_handle;
     motor_control_params.priority = 2;
-    Task_construct(&task_MotorControlStruct, (Task_FuncPtr)pwm_motor_proc_init, &motor_control_params, NULL);
+    Task_construct(&task_motor_control_struct, (Task_FuncPtr)pwm_motor_proc_init, &motor_control_params, NULL);
 
     /* Turn on user LED */
     GPIO_write(Board_LED0, Board_LED_ON);
 
     /* WiFi connection manager starts when BIOS starts; server waits on its semaphore. */
     Task_Params_init(&conn_mgr_params);
-    conn_mgr_params.arg0 = (UArg)semaphoreHandle;
+    conn_mgr_params.arg0 = (UArg)semaphore_handle;
     conn_mgr_params.arg1 = (UArg)uart_queue_handle;
     conn_mgr_params.stackSize = CM_TASKSTACKSIZE;
-    conn_mgr_params.stack = task_ConnectionManagerStack;
+    conn_mgr_params.stack = task_connection_manager_stack;
     conn_mgr_params.priority = 2;
-    conn_mgr_handle = Task_create((Task_FuncPtr)CM_connection_mgr, &conn_mgr_params, NULL);
+    conn_mgr_handle = Task_create((Task_FuncPtr)cm_connection_mgr, &conn_mgr_params, NULL);
 
     if (!conn_mgr_handle) {
         System_abort("Failed to launch connection manager task");
@@ -126,8 +126,8 @@ int main(void) {
 
     /* Server task blocks until the connection manager posts after WiFi/IP is up. */
     Task_Params_init(&server_task_params);
-    server_task_params.arg0 = (UArg)mailboxHandle;
-    server_task_params.arg1 = (UArg)semaphoreHandle;
+    server_task_params.arg0 = (UArg)mailbox_handle;
+    server_task_params.arg1 = (UArg)semaphore_handle;
     server_task_params.stackSize = DEFAULT_SERVER_TASKSTACKSIZE;
     server_task_params.stack = server_stack;
     server_task_params.priority = 2;

@@ -165,9 +165,10 @@ write-up: [uart-console-retarget.md](uart-console-retarget.md).
 ### `printf()` works under the debugger but a standalone board hangs / prints nothing
 **Cause:** C-library I/O still on semihosting (`-lrdimon` + `SemiHostSupport`) —
 the `BKPT`/`SVC` traps are serviced only by an attached debugger. **Fix:** the
-UART0 retarget above (`-lnosys` + `xCon/sysbios/syscalls_uart.c`). After it, output needs
-UART0 up: `printf` before `UARTStdioConfig(0,...)` is dropped by the `UARTEN`
-gate (move the config into board init for earliest boot logs).
+UART0 retarget above (`-lnosys` + `xCon/sysbios/syscalls_uart.c`). UART0 is now
+brought up at boot in `EK_TM4C129EXL_initUART()` (`UARTStdioConfig(0, 115200,
+120000000)`), so the `UARTEN` gate is satisfied from the first console write and
+early-init `UARTprintf`/`printf` reach the wire.
 
 ### `random.bin` is ~512 MB
 **Cause:** SYS/BIOS's RAM vector table section `.vtable` has its **LMA in SRAM**

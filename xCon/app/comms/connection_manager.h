@@ -38,49 +38,44 @@ struct configured_profiles{
 };
 
 struct connection_status{
-    bool ipAcquired;
-    bool deviceConnected;
-    _u32 ipv4Address;
-    _u32 ipv6Address[4];
+    bool ip_acquired;
+    bool device_connected;
+    _u32 ipv4_address;
+    _u32 ipv6_address[4];
 };
 
 
 /*
  Opens WiFi Driver and connects to WiFI AP by adding profile and setting auto connect policy.
  */
-void CM_connection_mgr(UArg arg0, UArg arg1);
+void cm_connection_mgr(UArg arg0, UArg arg1);
 
 
 /*
 Adds profile of WiFI AP sets auto connect policy.
  */
-int16_t CM_add_connection_profile(struct wlan_profile_info *profile);
+int16_t cm_add_connection_profile(struct wlan_profile_info *profile);
 
 /*
 Find saved profiles
  */
-uint8_t CM_load_saved_profiles();
+uint8_t cm_load_saved_profiles(void);
 
 /*
 Find saved profiles
  */
-void CM_print_configured_profiles();
+void cm_print_configured_profiles(void);
 
 /*
- *  ======== setStationMode ========
+ *  ======== cm_configure_wifi_parameters ========
  *  1. Sets WiFi to Station mode
  *  2. Enable DHCP client
  *  3. Set auto connect policy
  */
-void CM_configure_wifi_parameters(void);
+void cm_configure_wifi_parameters(void);
 
 /*
  * Calls sl_WlanGetNetworkList and loops through valid networks and extracts bssid from specified ssid.
  * Should fail if specified ssid isn't found
  */
-Sl_WlanNetworkEntry_t CM_read_accesspoint_bssid(_u8* hostName, _u8* apMACAddress);
-
-/*
- * monitor the state of the WiFi connection
- */
- void *CM_connectionStateMonitor(void);
+Sl_WlanNetworkEntry_t cm_read_accesspoint_bssid(_u8* host_name, _u8* ap_mac_address);

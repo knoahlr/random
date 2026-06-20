@@ -1,5 +1,5 @@
 /*
- * uart_if.h
+ * uart_interface.h
  *
  *  Created on: Mar 5, 2023
  *      Author: Noah Workstation
@@ -25,8 +25,6 @@ struct log_uart{
 };
 
 void configure_uart_interface(uint8_t uart_port);
-
-void uart_handler(void);
 
 void uart_messaging_service(UArg arg0);
 

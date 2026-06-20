@@ -54,13 +54,24 @@ it fails cleanly (`ENOMEM`) instead of trapping. To switch back to a newlib heap
 reserve a sized `.heap` in the linker script and the existing `_sbrk` becomes a
 real bump allocator.
 
-## Console ordering caveat
+## Console ordering — brought up at boot
 
-C-library output appears only **after** UART0 is enabled — i.e. after the app's
-`configure_uart_interface()`/`UARTStdioConfig(0, 115200, ...)` runs. `printf`
-calls before that (early init error paths) are silently dropped by the `UARTEN`
-gate. If you need the earliest possible boot messages on the wire, move the
-`UARTStdioConfig` call into board init (`EK_TM4C129EXL_initUART`).
+UART0 is enabled at boot: `EK_TM4C129EXL_initUART()` (called from
+`Board_initUART()` early in `main`) muxes PA0/PA1 and then calls
+`UARTStdioConfig(0, 115200, 120000000)`. The 120 MHz argument is the clock the
+catalog Boot module already established at reset
+(`random_pm4fg.c: sysCtlClockFreqSet(..., 120000000)`), surfaced as
+`EK_TM4C129EXL_SYSTEM_CLOCK`. Because this runs before any task, the `UARTEN`
+gate in `_write` is satisfied from the first console write, so both `UARTprintf`
+and C-library `printf` reach the wire from early init onward.
+
+`configure_uart_interface()` in `uart_interface.c` remains only as an idempotent
+guard (skips when already configured) for code paths that might run standalone;
+it no longer sets the system clock, which the Boot module owns.
+
+> Console logging is consolidated on **`UARTprintf`** (the lighter TivaWare
+> uartstdio path). The semihosting→UART0 `printf` retarget stays as a safety net,
+> but app code logs via `UARTprintf` so each line is emitted once, not twice.
 
 ## Optional follow-up (needs config regeneration)
 

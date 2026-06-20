@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <ti/sysbios/hal/Seconds.h>
+#include <utils/uartstdio.h>
 #include "socket.h"
 #include "EK_TM4C129EXL.h"
 
@@ -26,7 +27,7 @@ void udp_discovery_init()
 {
     udp_broadcast_sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (udp_broadcast_sock == -1) {
-        printf("UDP broadcast socket create failed\n");
+        UARTprintf("UDP broadcast socket create failed\n");
         return;
     }
     int broadcastEnable = 1;
