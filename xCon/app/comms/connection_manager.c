@@ -16,6 +16,7 @@
 
 /* SimpleLink stores up to 7 WLAN profiles (indices 0..6). */
 #define CM_MAX_PROFILES 7
+#define CM_WPA2_PROFILE_PRIORITY 6
 
 const static char default_hostname[] = APP_DEFAULT_WIFI_SSID;
 const static char default_pass[] = APP_DEFAULT_WIFI_PASS;
@@ -201,17 +202,20 @@ void cm_print_configured_profiles(void){
 
     if(saved_profiles.config_net_count){
         uint8_t profile_index = 0;
-        uart_log("\nSaved profiles found");
+        uart_log("\nSaved profiles found\n");
         for(; profile_index < saved_profiles.config_net_count; profile_index++){
             uint8_t profile_mac[6];
             memcpy(profile_mac, saved_profiles.profile_entries[profile_index].mac_address, sizeof(profile_mac));
-            uart_log("\t\nSSID: %s,\t\nPassword:%s \t\nMAC: %02x:%02x:%02x:%02x:%02x:%02x\t\nSSID Len: %d\n",
+            uart_log("SSID: %s, priority:%u, sec:%u, MAC:%02x:%02x:%02x:%02x:%02x:%02x, SSID Len:%d\n",
                           (char *)saved_profiles.profile_entries[profile_index].hostname,
-                          saved_profiles.profile_entries[profile_index].sec_params.Key,
+                          (unsigned)saved_profiles.profile_entries[profile_index].priority,
+                          (unsigned)saved_profiles.profile_entries[profile_index].sec_params.Type,
                           profile_mac[0], profile_mac[1], profile_mac[2],
                           profile_mac[3], profile_mac[4], profile_mac[5],
                           saved_profiles.profile_entries[profile_index].host_name_len);
         }
+    } else {
+        uart_log("No saved profiles found\n");
     }
 }
 
@@ -231,6 +235,12 @@ uint8_t cm_load_saved_profiles(void){
                                        &saved_profiles.profile_entries[i].sec_ext_params,
                                        &saved_profiles.profile_entries[i].priority);
        if(ret >= 0){
+           if ((saved_profiles.profile_entries[i].host_name_len >= 0) &&
+               (saved_profiles.profile_entries[i].host_name_len <= MAXIMAL_SSID_LENGTH)) {
+               saved_profiles.profile_entries[i].hostname[saved_profiles.profile_entries[i].host_name_len] = '\0';
+           } else {
+               saved_profiles.profile_entries[i].hostname[MAXIMAL_SSID_LENGTH] = '\0';
+           }
            saved_profiles.config_net_count++;
        }
    }
@@ -240,7 +250,7 @@ uint8_t cm_load_saved_profiles(void){
 int16_t cm_add_connection_profile(struct wlan_profile_info *profile)
 {
     _i16 wlan_connect_rc = -123;
-    uart_log("Adding profile.\nHostname:%s\npassword:%s\n", profile->hostname, profile->sec_params.Key);
+    uart_log("Adding profile.\nHostname:%s\n", profile->hostname);
 
     if(profile->sec_params.Type == SL_SEC_TYPE_OPEN) {
         wlan_connect_rc = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, NULL, NULL, profile->priority, 0);
@@ -248,6 +258,34 @@ int16_t cm_add_connection_profile(struct wlan_profile_info *profile)
         wlan_connect_rc = sl_WlanProfileAdd(profile->hostname, profile->host_name_len, NULL, &profile->sec_params, NULL, profile->priority, 0);
     }
     return wlan_connect_rc;
+}
+
+int16_t cm_add_wpa2_profile(const char *ssid, const char *passkey)
+{
+    size_t ssid_len = strlen(ssid);
+    size_t pass_len = strlen(passkey);
+    struct wlan_profile_info profile = { 0 };
+    int16_t rc;
+
+    if ((ssid_len == 0) || (ssid_len > MAXIMAL_SSID_LENGTH) ||
+        (pass_len < 8) || (pass_len > CM_MAX_WIFI_PASSPHRASE_LENGTH)) {
+        return CM_PROFILE_INVALID_ARG;
+    }
+
+    memcpy(profile.hostname, ssid, ssid_len);
+    memcpy(profile.password, passkey, pass_len);
+    profile.host_name_len     = (_i16)ssid_len;
+    profile.pass_len          = (_u8)pass_len;
+    profile.priority          = CM_WPA2_PROFILE_PRIORITY;
+    profile.sec_params.Type   = SL_SEC_TYPE_WPA_WPA2;
+    profile.sec_params.Key    = &profile.password[0];
+    profile.sec_params.KeyLen = profile.pass_len;
+
+    rc = cm_add_connection_profile(&profile);
+    if (rc >= 0) {
+        cm_load_saved_profiles();
+    }
+    return rc;
 }
 
 void cm_connection_mgr(UArg arg0, UArg arg1){

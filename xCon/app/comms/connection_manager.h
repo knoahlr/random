@@ -4,6 +4,7 @@
 
 #include <stdbool.h>
 #include <string.h>
+#include <stdint.h>
 #include <stdlib.h>
 
 #include <xdc/std.h>
@@ -20,10 +21,13 @@
 
 #include "Board.h"
 
+#define CM_PROFILE_INVALID_ARG (-4)
+#define CM_MAX_WIFI_PASSPHRASE_LENGTH 64
+
 struct wlan_profile_info
 {
-    int8_t hostname[MAXIMAL_SSID_LENGTH];
-    int8_t password[MAXIMAL_SSID_LENGTH];
+    int8_t hostname[MAXIMAL_SSID_LENGTH + 1];
+    int8_t password[CM_MAX_WIFI_PASSPHRASE_LENGTH + 1];
     int16_t host_name_len;
     uint8_t pass_len;
     uint32_t priority;
@@ -58,6 +62,9 @@ void cm_connection_mgr(UArg arg0, UArg arg1);
  * console to add profiles on the fly.
  */
 int16_t cm_add_connection_profile(struct wlan_profile_info *profile);
+
+/* Store a WPA/WPA2 profile from plain console arguments. */
+int16_t cm_add_wpa2_profile(const char *ssid, const char *passkey);
 
 /*
  * Read the profiles stored on the NWP into saved_profiles. Note the NWP does not
