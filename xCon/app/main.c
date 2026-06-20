@@ -31,10 +31,6 @@
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <string.h>
-#include <stdbool.h>
-#include <stdio.h>
-
 /* XDCtools Header files */
 #include <xdc/std.h>
 #include <xdc/runtime/System.h>
@@ -46,22 +42,15 @@
 #include <ti/sysbios/knl/Mailbox.h>
 #include <ti/sysbios/knl/Queue.h>
 
-
 /* TI-RTOS Header files */
 #include <ti/drivers/GPIO.h>
-#include <ti/drivers/PWM.h>
-#include <ti/drivers/WiFi.h>
 
-/* SimpleLink Wi-Fi Host Driver and board Header files */
-#include <simplelink.h>
+/* Board Header file */
 #include "Board.h"
 
 #include <hardware/dc_motor_control.h>
 #include <comms/connection_manager.h>
-#include <comms/uart_interface.h>
-#include <hardware/stepper_control.h>
 #include <comms/server.h>
-#include "driverlib/interrupt.h"
 /* <time.h> intentionally omitted: it is unused here and pulls newlib's
  * <sys/select.h>, whose select/fd_set/timeval collide with SimpleLink's BSD
  * socket layer (SL_INC_STD_BSD_API_NAMING). Time comes from SYS/BIOS Seconds. */
@@ -69,8 +58,6 @@
 
 /* Local Platform Specific Header file */
 
-#define GPIO_TASKSTACKSIZE     1024
-#define UART_TASKSTACKSIZE 8192
 #define CM_TASKSTACKSIZE     8192
 #define DEFAULT_SERVER_TASKSTACKSIZE   8192
 #define MOTOR_DUTY_TASKSTACKSIZE   2048
@@ -78,17 +65,11 @@
 #define STARTTIME 1718248069 //12/06/24
 
 
-Task_Struct task_GPIOStruct;
-Task_Struct task_DefaultServerStruct;
-Task_Struct task_ConnectionManagerStruct;
-Task_Struct task_PwmLedStruct;
-Task_Struct task_uartStruct;
+static Task_Struct task_MotorControlStruct;
 
-Char server_stack[DEFAULT_SERVER_TASKSTACKSIZE];
-Char task_GPIOStack[GPIO_TASKSTACKSIZE];
-Char task_ConnectionManagerStack[CM_TASKSTACKSIZE];
-Char task_motorDutyStack[MOTOR_DUTY_TASKSTACKSIZE];
-Char task_UARTStack[UART_TASKSTACKSIZE];
+static Char server_stack[DEFAULT_SERVER_TASKSTACKSIZE];
+static Char task_ConnectionManagerStack[CM_TASKSTACKSIZE];
+static Char task_motorDutyStack[MOTOR_DUTY_TASKSTACKSIZE];
 
 
 /*
@@ -96,20 +77,20 @@ Char task_UARTStack[UART_TASKSTACKSIZE];
  */
 int main(void) {
 
-    // TASK Declarations
+    /* Task declarations */
     Task_Params conn_mgr_params;
     Task_Params server_task_params;
     Task_Params motor_control_params;
     Task_Handle conn_mgr_handle;
     Task_Handle server_handle;
 
-    // Semaphore Declarations
-
     Semaphore_Handle semaphoreHandle = Semaphore_create(0, NULL, NULL);
     Mailbox_Handle mailboxHandle = Mailbox_create(sizeof(Gamepad), 10, NULL, NULL);
-    Queue_Handle uart_queue_handle= Queue_create(NULL, NULL);
+    Queue_Handle uart_queue_handle = Queue_create(NULL, NULL);
 
-    /* Call board init functions */
+    if (!semaphoreHandle || !mailboxHandle || !uart_queue_handle) {
+        System_abort("Failed to create RTOS synchronization objects");
+    }
 
     Board_initGeneral();
     Board_initGPIO();
@@ -119,61 +100,44 @@ int main(void) {
 
     Seconds_set(STARTTIME);
 
-    /* Construct  Task thread  --- TODO Rename to DC Motor Control Task*/
+    /* Motor control task. */
     Task_Params_init(&motor_control_params);
     motor_control_params.stackSize = MOTOR_DUTY_TASKSTACKSIZE;
-    motor_control_params.stack = &task_motorDutyStack;
+    motor_control_params.stack = task_motorDutyStack;
     motor_control_params.arg0 = (UArg)mailboxHandle;
     motor_control_params.priority = 2;
-    Task_construct(&task_PwmLedStruct, (Task_FuncPtr)pwm_motor_proc_init, &motor_control_params, NULL);
+    Task_construct(&task_MotorControlStruct, (Task_FuncPtr)pwm_motor_proc_init, &motor_control_params, NULL);
 
     /* Turn on user LED */
     GPIO_write(Board_LED0, Board_LED_ON);
 
+    /* WiFi connection manager starts when BIOS starts; server waits on its semaphore. */
     Task_Params_init(&conn_mgr_params);
     conn_mgr_params.arg0 = (UArg)semaphoreHandle;
     conn_mgr_params.arg1 = (UArg)uart_queue_handle;
     conn_mgr_params.stackSize = CM_TASKSTACKSIZE;
-    conn_mgr_params.stack = &task_ConnectionManagerStack;
+    conn_mgr_params.stack = task_ConnectionManagerStack;
     conn_mgr_params.priority = 2;
     conn_mgr_handle = Task_create((Task_FuncPtr)CM_connection_mgr, &conn_mgr_params, NULL);
 
     if (!conn_mgr_handle) {
-        printf("Failed to launch connection mgr task");
+        System_abort("Failed to launch connection manager task");
     }
 
-    // /* Construct Task to manage UART connection*/
-    // Task_Params_init(&uart_params);
-    // uart_params.stackSize = UART_TASKSTACKSIZE;
-    // uart_params.stack = &task_UARTStack;
-    // uart_params.arg0 = uart_queue_handle;
-    // uart_params.priority = 5;
-    // uart_handle = Task_create((Task_FuncPtr)uart_messaging_service, &uart_params, NULL);
-
-    /* Construct serverTask Task thread */
+    /* Server task blocks until the connection manager posts after WiFi/IP is up. */
     Task_Params_init(&server_task_params);
     server_task_params.arg0 = (UArg)mailboxHandle;
     server_task_params.arg1 = (UArg)semaphoreHandle;
     server_task_params.stackSize = DEFAULT_SERVER_TASKSTACKSIZE;
-    server_task_params.stack = &server_stack;
+    server_task_params.stack = server_stack;
     server_task_params.priority = 2;
     server_handle = Task_create((Task_FuncPtr)server_task, &server_task_params, NULL);
 
     if (!server_handle) {
-        printf("Failed to start server task");
+        System_abort("Failed to start server task");
     }
 
-    System_printf("Here NOW\n");
-
-    /* SysMin will only print to the console when you call flush or exit */
-    System_flush();
-
-
-    /* Start BIOS */
     BIOS_start();
-    IntMasterEnable();
-
-//    while(Task_getMode(conn_mgr_handle) == ti_sysbios_knl_Task_Mode_RUNNING || Task_getMode(conn_mgr_handle) == ti_sysbios_knl_Task_Mode_READY){}w
 
     return (0);
 }

@@ -55,6 +55,14 @@ dkms.conf
 Debug/*
 /Debug/
 
+# Codex local workspace state; keep the project context note tracked.
+/.codex/*
+!/.codex/README.md
+
+# Claude Code local machine settings; keep shared project settings tracked.
+/.claude/*
+!/.claude/settings.json
+
 # configuro output (regenerated via tools/generate-bios-config.sh)
 /xCon/generated/*
 !/xCon/generated/compiler.opt
