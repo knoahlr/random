@@ -122,7 +122,7 @@ int main(void) {
     Task_construct(&task_motor_control_struct, (Task_FuncPtr)pwm_motor_proc_init, &motor_control_params, NULL);
 
     /* Turn on user LED */
-    GPIO_write(Board_LED0, Board_LED_ON);
+    GPIO_write(Board_LED1, Board_LED_ON);
 
     /* WiFi connection manager starts when BIOS starts; server waits on its semaphore. */
     Task_Params_init(&conn_mgr_params);

@@ -24,6 +24,8 @@
 #include <ti/sysbios/BIOS.h>
 #include <ti/sysbios/knl/Mailbox.h>
 
+#include <ti/drivers/GPIO.h>
+
 #include "Board.h"
 
 /* Depth of the console log queue (messages buffered before drops begin). */
@@ -73,6 +75,9 @@ void uart_messaging_service(UArg arg0){
     for(;;) {
         if (Mailbox_pend(uart_log_mbox, &msg, BIOS_WAIT_FOREVER)) {
             UARTwrite(msg.data, msg.len);
+            /* Board_LED0 is the UART activity indicator: toggles on every line
+             * pushed to the wire. No other task drives this LED. */
+            GPIO_toggle(Board_LED0);
         }
     }
 }

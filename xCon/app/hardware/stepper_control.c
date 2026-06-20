@@ -46,7 +46,7 @@ void toggle_stepper(void)
     {
         GPIOPinWrite(GPIO_PORTH_BASE, GPIO_PIN_0, 0);
         GPIOPinWrite(GPIO_PORTH_BASE, GPIO_PIN_1, GPIO_PIN_1);
-        GPIO_toggle(Board_LED0);
+        GPIO_toggle(Board_LED1);
     }
     else if (l1 > l2)
     {
@@ -58,7 +58,7 @@ void toggle_stepper(void)
     {
         GPIOPinWrite(GPIO_PORTL_BASE, GPIO_PIN_2, 0);
         GPIOPinWrite(GPIO_PORTL_BASE, GPIO_PIN_3, GPIO_PIN_3);
-        GPIO_toggle(Board_LED0);
+        GPIO_toggle(Board_LED1);
     }
     else if (l3 > l1)
     {
@@ -79,7 +79,7 @@ void full_stepper_toggle(void)
             GPIOPinWrite(GPIO_PORTH_BASE, STEPPER_IN1, STEPPER_IN1);
             GPIOPinWrite(GPIO_PORTK_BASE, STEPPER_IN4, STEPPER_IN4);
             stepper_1_state = PHASE2;
-            GPIO_toggle(Board_LED0);
+            GPIO_toggle(Board_LED1);
             break;
         case PHASE2:
             GPIOPinWrite(GPIO_PORTH_BASE, STEPPER_IN1, 0x0);
@@ -98,7 +98,7 @@ void full_stepper_toggle(void)
             GPIOPinWrite(GPIO_PORTH_BASE, STEPPER_IN2, STEPPER_IN2);
             GPIOPinWrite(GPIO_PORTK_BASE, STEPPER_IN3, STEPPER_IN3);
             stepper_1_state = PHASE4;
-            GPIO_toggle(Board_LED0);
+            GPIO_toggle(Board_LED1);
             break;
         case PHASE4:
             GPIOPinWrite(GPIO_PORTH_BASE, STEPPER_IN2, 0x0);

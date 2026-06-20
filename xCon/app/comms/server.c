@@ -77,7 +77,7 @@ void tcp_message_handler(int server, Mailbox_Handle mail) {
 
     while(client_fd >= 0) {
 
-        GPIO_toggle(Board_LED0);
+        GPIO_toggle(Board_LED1);
         bytes_rcvd = recv(client_fd, buffer, APP_TCP_PACKET_SIZE, 4);
 
         Gamepad gamepad_state = { 0 };
@@ -135,7 +135,7 @@ void server_task(UArg arg0, UArg arg1)
     // Wait for network connection/IP acquired
     semaphore_post_status = Semaphore_pend(sem, semaphore_timeout);
     if (!semaphore_post_status) return;
-    GPIO_write(Board_LED0, 0);
+    GPIO_write(Board_LED1, 0);
 
     uint32_t last_cycle = Seconds_get();
     relay_app_beacon_t relay = {0};
