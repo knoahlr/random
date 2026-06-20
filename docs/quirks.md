@@ -152,10 +152,22 @@ doesn't define `gcc`, so `cpu.c` compiled to an **empty object**. **Fix:**
 
 ### `undefined reference to 'initialise_monitor_handles'` (from `SemiHostSupport.c`)
 **Cause:** the BIOS gnu `SemiHostSupport` module uses **semihosting**;
-`initialise_monitor_handles` is in `librdimon`. We were linking `-lnosys`.
-**Fix:** link `-lrdimon` (matches TI-RTOS `makedefs`). **Runtime caveat:**
-semihosting I/O requires a debugger attached — retarget C-library I/O to UART for
-standalone boot.
+`initialise_monitor_handles` is in `librdimon`, not `libnosys`.
+**Original fix (superseded):** link `-lrdimon`. This *links* but stalls at
+runtime — semihosting `_write`/`_sbrk` traps need a debugger attached, so a
+standalone board hangs on the first `printf()`/`malloc()`.
+**Current fix:** link **`-lnosys`** and retarget C-library I/O to **UART0** (the
+ICDI virtual COM port) in `src/syscalls_uart.c`: override `_write`→UART0,
+`_isatty`/`_fstat` (line-buffered stdout), a no-op `initialise_monitor_handles`,
+and a guard `_sbrk` (malloc is BIOS-backed). No config regeneration needed. Full
+write-up: [uart-console-retarget.md](uart-console-retarget.md).
+
+### `printf()` works under the debugger but a standalone board hangs / prints nothing
+**Cause:** C-library I/O still on semihosting (`-lrdimon` + `SemiHostSupport`) —
+the `BKPT`/`SVC` traps are serviced only by an attached debugger. **Fix:** the
+UART0 retarget above (`-lnosys` + `src/syscalls_uart.c`). After it, output needs
+UART0 up: `printf` before `UARTStdioConfig(0,...)` is dropped by the `UARTEN`
+gate (move the config into board init for earliest boot logs).
 
 ### `random.bin` is ~512 MB
 **Cause:** SYS/BIOS's RAM vector table section `.vtable` has its **LMA in SRAM**

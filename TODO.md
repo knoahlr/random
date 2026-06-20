@@ -17,12 +17,13 @@ Open items after the CCS → CMake migration. **None of these block the build** 
 
 ## Runtime / correctness
 
-- [ ] **Retarget C-library I/O off semihosting.** We link `-lrdimon` to satisfy
-  the BIOS `SemiHostSupport` (`initialise_monitor_handles`), but semihosting I/O
-  requires a debugger attached — the firmware will stall on stdio without one.
-  Retarget the C library (and/or the System provider) to **UART** for standalone
-  boot. See the `initialise_monitor_handles` entry in
-  [docs/quirks.md](docs/quirks.md).
+- [x] **Retarget C-library I/O off semihosting.** Done: link `-lnosys` (was
+  `-lrdimon`) and `src/syscalls_uart.c` retargets `_write`/`_isatty`/`_sbrk` +
+  no-op `initialise_monitor_handles` onto **UART0** (the ICDI virtual COM port).
+  `printf`/`puts` now work standalone, no debugger. See
+  [docs/uart-console-retarget.md](docs/uart-console-retarget.md). Optional
+  follow-up: drop the now-inert `SemiHostSupport` from `random.cfg` (needs a
+  config regeneration).
 
 ## Watch-items (verify, no action unless they bite)
 

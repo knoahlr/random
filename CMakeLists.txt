@@ -85,6 +85,7 @@ set(APP_SOURCES
     app/hardware/stepper_control.c
     app/comms/uart_interface.c
     src/newlib_locks.c   # C-library lock retargeting for gcc 13.2 newlib (see docs/newlib-locking-port.md)
+    src/syscalls_uart.c  # newlib stdio/_sbrk retarget off semihosting onto UART0 (see docs/uart-console-retarget.md)
 )
 
 file(GLOB GEN_CFG_SRC ${GEN_DIR}/package/cfg/random_pm4fg.c ${GEN_DIR}/*.c)
@@ -97,7 +98,9 @@ if(GEN_CFG_SRC AND GEN_LINKER)
     target_link_libraries(random.out PRIVATE
         -Wl,--start-group
         sysbios tivaware ${SDK_PREBUILT_LIBS}
-        -lc -lgcc -lm -lrdimon
+        # -lnosys (not -lrdimon): no semihosting. C-library I/O is retargeted to
+        # UART0 in src/syscalls_uart.c (_write/_sbrk + a no-op initialise_monitor_handles).
+        -lc -lgcc -lm -lnosys
         -Wl,--end-group
     )
     # Base memory map + standard sections first, then the configuro fragment

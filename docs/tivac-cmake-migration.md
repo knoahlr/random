@@ -11,6 +11,10 @@ Related docs:
 - [regenerating-sysbios-config.md](regenerating-sysbios-config.md) — the narrow
   "how do I regenerate the kernel config" task.
 - [newlib-locking-port.md](newlib-locking-port.md) — the C-library locking port.
+- [uart-console-retarget.md](uart-console-retarget.md) — standalone C-library I/O
+  (printf/malloc) on UART0 instead of semihosting.
+- [flashing-and-console.md](flashing-and-console.md) — flashing with `lm4flash`
+  and viewing UART prints, from Windows PowerShell or WSL.
 - [adding-ndk.md](adding-ndk.md) — adding the wired TCP/IP stack later.
 
 ---
@@ -164,7 +168,9 @@ the TI-RTOS GNU example `DK_TM4C129X.lds`; the two-script order mirrors TI-RTOS
 `makedefs`. All objects and libraries are provided by CMake from `third_party/`
 (not via the fragment's old `INPUT()` block), keeping the build self-contained.
 The link group is: from-source `sysbios` + `tivaware`, the prebuilt driver/WiFi/
-ports/RTS/Boot `.am4fg`, then `-lc -lgcc -lm -lrdimon`.
+ports/RTS/Boot `.am4fg`, then `-lc -lgcc -lm -lnosys`. (`-lnosys`, not the
+semihosting `-lrdimon`: C-library I/O is retargeted to UART0 — see
+[uart-console-retarget.md](uart-console-retarget.md).)
 
 Result: `random.out` (+ `.bin`/`.hex`), entry `_c_int00`, `.intvecs` at `0x0`,
 `.data`/`.bss`/`.stack` in SRAM; ~109 KB flash / ~72 KB SRAM.
@@ -182,9 +188,11 @@ duplicates, the `rtsv7M.am4fg` / `CPUcpsie` / `initialise_monitor_handles` /
   Cortex-M4F AAPCS is stable, but newlib/libgcc edges can bite. The CC3x00 WiFi
   driver is **prebuilt-only** (no source), so this can't be fully escaped — a
   watch-item for link/runtime behaviour.
-- **C-library I/O is semihosting.** `-lrdimon` satisfies the BIOS
-  `SemiHostSupport`, but semihosting I/O needs a debugger attached. Retarget the C
-  library to UART for standalone boot.
+- **C-library I/O is on UART0, not semihosting.** The build links `-lnosys` and
+  `src/syscalls_uart.c` retargets `_write`/`_isatty`/`_sbrk` (+ a no-op
+  `initialise_monitor_handles`) to UART0, so `printf`/`malloc` run with no
+  debugger. Output appears once `UARTStdioConfig(0,...)` has run. See
+  [uart-console-retarget.md](uart-console-retarget.md).
 
 ---
 
@@ -195,10 +203,12 @@ from a clean tree. Still to do (none block the build):
 
 - Remove the legacy CCS files (`.cproject`, `.ccsproject`, `.project`,
   `makefile.defs`, `.config/`, `targetConfigs/`). Keep `src/` — it now holds
-  `newlib_locks.c`.
-- Decide C-library I/O retargeting (semihosting vs UART) for standalone boot.
+  `newlib_locks.c` and `syscalls_uart.c`.
 - Clean unused vars from `CMakePresets.json` (`TI_ROOT`/`TIRTOS_INSTALL`/
   `TIVAWARE_INSTALL`).
+
+(C-library I/O retargeting — formerly open here — is **done**: standalone UART0,
+[uart-console-retarget.md](uart-console-retarget.md).)
 
 ---
 

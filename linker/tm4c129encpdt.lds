@@ -93,6 +93,8 @@ SECTIONS {
         __bss_end__ = .;
     } > REGION_BSS AT> REGION_BSS
 
+    /* No size reserved: malloc/free resolve to the SYS/BIOS heap (HeapMem, sized
+     * in random.cfg), so newlib shares the RTOS heap rather than an _sbrk one. */
     .heap : {
         __heap_start__ = .;
         end = __heap_start__;
