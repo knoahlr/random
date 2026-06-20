@@ -130,20 +130,25 @@ void cm_configure_wifi_parameters(void) {
     int           response;
     unsigned char param;
 
+    uart_log("[wifi] sl_Start (this blocks until the CC3x00 responds)...\n");
     mode = sl_Start(0, 0, 0);
+    uart_log("[wifi] sl_Start returned mode=%d\n", mode);
     if (mode < 0) {
+        uart_log_fatal("[wifi] FATAL: sl_Start < 0 (NWP did not initialize)\n");
         System_abort("Could not initialize SimpleLink Wi-Fi");
     }
 
     /* Change network processor to station mode */
     if (mode != ROLE_STA) {
+        uart_log("[wifi] not station mode (%d); switching to ROLE_STA...\n", mode);
         sl_WlanSetMode(ROLE_STA);
 
-        uart_log("Configuring Station mode. Mode: %d\n", ROLE_STA);
         /* Restart network processor */
         sl_Stop(BIOS_WAIT_FOREVER);
         mode = sl_Start(0, 0, 0);
+        uart_log("[wifi] restart returned mode=%d\n", mode);
         if (mode != ROLE_STA) {
+            uart_log_fatal("[wifi] FATAL: still not station mode after restart\n");
             System_abort("Failed to set SimpleLink Wi-Fi to Station mode");
         }
     }
@@ -154,6 +159,7 @@ void cm_configure_wifi_parameters(void) {
     response = sl_WlanPolicySet(SL_POLICY_CONNECTION,
             SL_CONNECTION_POLICY(1, 0, 0, 1, 0), NULL, 0);
     if (response < 0) {
+        uart_log_fatal("[wifi] FATAL: sl_WlanPolicySet failed\n");
         System_abort("Failed to set connection policy to auto");
     }
 
@@ -161,8 +167,10 @@ void cm_configure_wifi_parameters(void) {
     param = 1;
     response = sl_NetCfgSet(SL_IPV4_STA_P2P_CL_DHCP_ENABLE, 1, 1, &param);
     if(response < 0) {
+        uart_log_fatal("[wifi] FATAL: sl_NetCfgSet (DHCP enable) failed\n");
         System_abort("Could not enable DHCP client");
     }
+    uart_log("[wifi] station mode + DHCP client configured\n");
 
     /* Set connection variables to initial values */
     device_connected = false;
@@ -280,14 +288,18 @@ void cm_connection_mgr(UArg arg0, UArg arg1){
     GPIO_write(Board_LED1, Board_LED_OFF);
 
     /* Open WiFi driver */
+    uart_log("[wifi] opening driver (Board_WIFI, SPI bitrate=%d)...\n", SPI_BIT_RATE);
     WiFi_Params_init(&wifi_params);
     wifi_params.bitRate = SPI_BIT_RATE;
     handle = WiFi_open(Board_WIFI, Board_WIFI_SPI, NULL, &wifi_params);
     if (handle == NULL) {
+        uart_log_fatal("[wifi] FATAL: WiFi_open returned NULL (SPI/driver init failed)\n");
         System_abort("WiFi driver failed to open.");
     }
+    uart_log("[wifi] driver open; configuring station mode...\n");
 
     cm_configure_wifi_parameters();
+    uart_log("[wifi] configured; reading MAC...\n");
 
     sl_NetCfgGet(SL_MAC_ADDRESS_GET, NULL, &device_mac_address_len, (_u8 *)device_mac_address);
 

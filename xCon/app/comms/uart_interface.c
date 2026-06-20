@@ -26,6 +26,9 @@
 
 #include <ti/drivers/GPIO.h>
 
+#include <inc/hw_memmap.h>
+#include <driverlib/uart.h>
+
 #include "Board.h"
 
 /* Depth of the console log queue (messages buffered before drops begin). */
@@ -66,6 +69,21 @@ void uart_log(const char *fmt, ...){
 
     /* Non-blocking: drop the line rather than stall the producer if the queue is full. */
     Mailbox_post(uart_log_mbox, &msg, BIOS_NO_WAIT);
+}
+
+void uart_log_fatal(const char *s){
+    /*
+     * Blocking, polled write straight to the UART0 TX FIFO, bypassing the queue
+     * and the uartstdio TX ring. For fatal paths that are about to System_abort
+     * (which disables interrupts, so the ISR can no longer drain the ring) — this
+     * guarantees the reason reaches the wire before the core halts.
+     */
+    while (*s) {
+        if (*s == '\n') {
+            UARTCharPut(UART0_BASE, '\r');
+        }
+        UARTCharPut(UART0_BASE, (unsigned char)*s++);
+    }
 }
 
 void uart_messaging_service(UArg arg0){

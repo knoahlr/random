@@ -37,6 +37,13 @@ void uart_log_init(void);
 void uart_log(const char *fmt, ...);
 
 /*
+ * Blocking, polled console write that bypasses the queue and the uartstdio TX
+ * ring. Use only on fatal paths just before System_abort(), where the
+ * interrupt-driven drain can no longer flush. Adds CR before LF.
+ */
+void uart_log_fatal(const char *s);
+
+/*
  * Console log consumer task: owns UART0, draining the log queue to the wire.
  * Run exactly one instance (started from main).
  */
