@@ -163,8 +163,19 @@ void server_task(UArg arg0, UArg arg1)
 
             g_stats.client_connected = false;
             uart_log("[server] client disconnected\n");
+            /* listen_fd is untouched: loop straight back to accept() the next
+             * client. Only the per-client socket was closed by the session. */
+        } else if (client_fd == SL_EAGAIN) {
+            /* Non-blocking listener with nothing pending. Sleep so we don't
+             * spin the CPU, then poll accept() again. */
+            Task_sleep(SERVER_ACCEPT_POLL_TICKS);
         } else {
-            /* SL_EAGAIN: nothing pending. Sleep so we don't spin the CPU. */
+            /* A real listener fault (not EAGAIN). Tear the listen socket down
+             * and rebuild it next iteration rather than spinning on a dead fd. */
+            uart_log("[server] accept error %d; reopening listener\n", client_fd);
+            close(listen_fd);
+            listen_fd = -1;
+            g_stats.listening = false;
             Task_sleep(SERVER_ACCEPT_POLL_TICKS);
         }
     }
