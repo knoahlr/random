@@ -103,9 +103,17 @@ void server_task(UArg arg0, UArg arg1)
         int client_fd = accept(listen_fd, (struct sockaddr *)&client_addr, &addrlen);
 
         if (client_fd >= 0) {
+            uint32_t ip = ntohl(client_addr.sin_addr.s_addr);
+            uart_log("[server] client connected from %u.%u.%u.%u:%u\n",
+                     (unsigned)((ip >> 24) & 0xFF), (unsigned)((ip >> 16) & 0xFF),
+                     (unsigned)((ip >> 8) & 0xFF), (unsigned)(ip & 0xFF),
+                     (unsigned)ntohs(client_addr.sin_port));
+
             /* Serve this controller to completion before accepting another,
              * which bounds us to SERVER_MAX_CONNECTIONS at a time. */
             net_service_session(client_fd, mail);
+
+            uart_log("[server] client disconnected\n");
         } else {
             /* SL_EAGAIN: nothing pending. Sleep so we don't spin the CPU. */
             Task_sleep(SERVER_ACCEPT_POLL_TICKS);

@@ -61,8 +61,6 @@ void net_service_session(int fd, Mailbox_Handle mail)
     net_socket_set_nonblocking(fd, 0);
     net_socket_set_recv_timeout_s(fd, SESSION_RECV_TIMEOUT_S);
 
-    uart_log("[session] peer connected\n");
-
     for (;;) {
         GPIO_toggle(Board_LED1);
 
