@@ -25,8 +25,9 @@ void net_socket_set_recv_timeout_s(int fd, uint32_t seconds);
 /*
  * Service one connected peer until it disconnects or goes idle. Streams gamepad
  * frames into the motor mailbox and echoes the parsed status back. The socket is
- * closed before returning.
+ * closed before returning. Returns the number of gamepad frames parsed during
+ * the session (lets the caller track throughput without shared state).
  */
-void net_service_session(int fd, Mailbox_Handle mail);
+uint32_t net_service_session(int fd, Mailbox_Handle mail);
 
 #endif /* APP_COMMS_NET_SESSION_H */

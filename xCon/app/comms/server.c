@@ -30,6 +30,7 @@
 #include <ti/sysbios/knl/Clock.h>
 #include <ti/sysbios/knl/Mailbox.h>
 #include <ti/sysbios/knl/Semaphore.h>
+#include <ti/sysbios/hal/Seconds.h>
 #include <ti/drivers/GPIO.h>
 
 #include "Board.h"
@@ -41,6 +42,44 @@
 #define SERVER_ACCEPT_POLL_TICKS  100
 /* Controllers served concurrently. One for now; sessions run to completion. */
 #define SERVER_MAX_CONNECTIONS    1
+
+/*
+ * Status snapshot for the `server` console command. Written only by the server
+ * task; read by the console task. Fields are word-sized so a torn read at worst
+ * shows a momentarily stale value, which is fine for a human-facing readout.
+ */
+typedef struct {
+    bool     listening;          /* listen socket is open */
+    bool     client_connected;   /* a client session is in progress */
+    uint32_t client_ip;          /* current/last client IP (host order) */
+    uint16_t client_port;        /* current/last client port */
+    uint32_t session_start_s;    /* Seconds when the current client connected */
+    uint32_t total_connections;  /* clients accepted since boot */
+    uint32_t total_frames;       /* gamepad frames parsed since boot */
+} server_stats_t;
+
+static server_stats_t g_stats;
+
+void server_status(void)
+{
+    uint32_t ip = g_stats.client_ip;
+
+    uart_log("[server] listening=%d port=%u\n",
+             g_stats.listening, (unsigned)APP_TCP_SERVER_PORT);
+
+    if (g_stats.client_connected) {
+        uart_log("[server] client connected: %u.%u.%u.%u:%u  session=%us\n",
+                 (unsigned)((ip >> 24) & 0xFF), (unsigned)((ip >> 16) & 0xFF),
+                 (unsigned)((ip >> 8) & 0xFF), (unsigned)(ip & 0xFF),
+                 (unsigned)g_stats.client_port,
+                 (unsigned)(Seconds_get() - g_stats.session_start_s));
+    } else {
+        uart_log("[server] no client connected\n");
+    }
+
+    uart_log("[server] total_connections=%u total_frames=%u\n",
+             (unsigned)g_stats.total_connections, (unsigned)g_stats.total_frames);
+}
 
 /* Open, bind and listen the server socket, set non-blocking so accept() polls.
  * Returns the fd or -1. */
@@ -88,10 +127,12 @@ void server_task(UArg arg0, UArg arg1)
     GPIO_write(Board_LED1, Board_LED_OFF);
 
     int listen_fd = open_listen_socket();
+    g_stats.listening = (listen_fd >= 0);
 
     for (;;) {
         if (listen_fd < 0) {
             listen_fd = open_listen_socket();
+            g_stats.listening = (listen_fd >= 0);
             if (listen_fd < 0) {
                 Task_sleep(SERVER_ACCEPT_POLL_TICKS);
                 continue;
@@ -104,15 +145,23 @@ void server_task(UArg arg0, UArg arg1)
 
         if (client_fd >= 0) {
             uint32_t ip = ntohl(client_addr.sin_addr.s_addr);
+
+            g_stats.client_ip        = ip;
+            g_stats.client_port      = ntohs(client_addr.sin_port);
+            g_stats.session_start_s  = Seconds_get();
+            g_stats.client_connected = true;
+            g_stats.total_connections++;
+
             uart_log("[server] client connected from %u.%u.%u.%u:%u\n",
                      (unsigned)((ip >> 24) & 0xFF), (unsigned)((ip >> 16) & 0xFF),
                      (unsigned)((ip >> 8) & 0xFF), (unsigned)(ip & 0xFF),
-                     (unsigned)ntohs(client_addr.sin_port));
+                     (unsigned)g_stats.client_port);
 
             /* Serve this controller to completion before accepting another,
              * which bounds us to SERVER_MAX_CONNECTIONS at a time. */
-            net_service_session(client_fd, mail);
+            g_stats.total_frames += net_service_session(client_fd, mail);
 
+            g_stats.client_connected = false;
             uart_log("[server] client disconnected\n");
         } else {
             /* SL_EAGAIN: nothing pending. Sleep so we don't spin the CPU. */

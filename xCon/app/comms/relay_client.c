@@ -94,7 +94,7 @@ void relay_client_task(UArg arg0, UArg arg1)
                 int fd = connect_to_relay_app(relay.ip, relay.port);
                 if (fd >= 0) {
                     send_handshake(fd);
-                    net_service_session(fd, mail);
+                    (void)net_service_session(fd, mail);
                 }
                 continue;   /* re-discover after the session ends */
             }

@@ -22,4 +22,11 @@
  */
 void server_task(UArg arg0, UArg arg1);
 
+/*
+ * Log the current server status (listening state/port, the connected client if
+ * any, and cumulative connection/frame counters) to the console log. Safe to
+ * call from another task (e.g. the console); it only reads the stats snapshot.
+ */
+void server_status(void);
+
 #endif /* APP_COMMS_SERVER_H */

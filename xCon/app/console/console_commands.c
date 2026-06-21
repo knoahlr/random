@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <comms/connection_manager.h>
+#include <comms/server.h>
 
 static int cmd_help(int argc, char *argv[])
 {
@@ -94,6 +95,19 @@ static int cmd_status(int argc, char *argv[])
     return 0;
 }
 
+static int cmd_server(int argc, char *argv[])
+{
+    (void)argv;
+
+    if (argc != 1) {
+        console_puts("usage: server\r\n");
+        return CMDLINE_INVALID_ARG;
+    }
+
+    server_status();
+    return 0;
+}
+
 static int cmd_clear_profiles(int argc, char *argv[])
 {
     (void)argv;
@@ -114,6 +128,7 @@ tCmdLineEntry g_psCmdTable[] = {
     { "connect",        cmd_connect,        "connect <ssid> <passkey>" },
     { "add-profile",    cmd_add_profile,    "add-profile <ssid> <passkey>" },
     { "status",         cmd_status,         "show WiFi connection status" },
+    { "server",         cmd_server,         "show command-server status" },
     { "profiles",       cmd_profiles,       "list stored WiFi profiles" },
     { "clear-profiles", cmd_clear_profiles, "delete stored WiFi profiles" },
     { NULL,             NULL,               NULL }

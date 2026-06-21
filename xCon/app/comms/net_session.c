@@ -51,10 +51,11 @@ static bool keepalive_ok(int fd)
     return send(fd, ping, sizeof(ping) - 1, 0) > 0;
 }
 
-void net_service_session(int fd, Mailbox_Handle mail)
+uint32_t net_service_session(int fd, Mailbox_Handle mail)
 {
     uint8_t  buffer[APP_TCP_PACKET_SIZE];
     uint32_t last_rx_s = Seconds_get();
+    uint32_t frames    = 0;
 
     /* A socket accepted from a non-blocking listener inherits that flag; force a
      * blocking socket with a bounded recv timeout so this loop wakes regularly. */
@@ -71,6 +72,7 @@ void net_service_session(int fd, Mailbox_Handle mail)
 
             Gamepad gamepad_state = { 0 };
             if (command_frame_parse(&gamepad_state, buffer, sizeof(buffer))) {
+                frames++;
                 /* Non-blocking: a full motor mailbox means the consumer is
                  * behind; drop this frame rather than stall the network loop —
                  * the next frame supersedes it anyway. */
@@ -101,4 +103,5 @@ void net_service_session(int fd, Mailbox_Handle mail)
     }
 
     close(fd);
+    return frames;
 }
