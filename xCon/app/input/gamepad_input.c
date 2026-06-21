@@ -3,87 +3,80 @@
  *
  *  Created on: Mar 18, 2020
  *      Author: Noah Workstation
+ *
+ * Decodes a relay GamepadState payload into the local Gamepad struct. The wire
+ * format is documented byte-for-byte in docs/gamepad-protocol.md; this file owns
+ * only the payload decode (the 16-byte message envelope/framing lives in the
+ * transport layer, net_session.c).
  */
 
 #include <input/gamepad_input.h>
 
-enum controller_state {
-    FULL_STATE     = 7,
-    THROTTLE_STATE = 17,
-};
+/* GamepadState payload layout (little-endian), per docs/gamepad-protocol.md:
+ *    0  u8  device_id        8  s16 rx (right stick X)
+ *    1  u8  flags           10  s16 ry (right stick Y)
+ *    2  u16 buttons         12  u16 l2 (left trigger  0..65535)
+ *    4  s16 lx (L stick X)  14  u16 r2 (right trigger 0..65535)
+ *    6  s16 ly (L stick Y)  16  s16 dpad_x   18 s16 dpad_y   20.. reserved
+ */
+#define GP_OFF_BUTTONS  2
+#define GP_OFF_LX       4
+#define GP_OFF_LY       6
+#define GP_OFF_RX       8
+#define GP_OFF_RY      10
+#define GP_OFF_L2      12
+#define GP_OFF_R2      14
 
-// Data Format: [FSS, CommandID, Len, RT, LT, RB, LB, RA.x, RA.y, LA.x, LA.y, X, A, B, Y]
-// Frame Synchronization Sequence: [255, 255, 255]
-bool command_frame_parse(Gamepad *gamepad, uint8_t *input, size_t input_buffer_size)
+/* Button bitmask (uint16 at offset 2); PS5/DualSense naming. */
+#define BTN_CROSS     0x0001  /* A */
+#define BTN_CIRCLE    0x0002  /* B */
+#define BTN_SQUARE    0x0004  /* X */
+#define BTN_TRIANGLE  0x0008  /* Y */
+#define BTN_L1        0x0010  /* LB */
+#define BTN_R1        0x0020  /* RB */
+
+static inline uint16_t rd_u16(const uint8_t *p)
 {
-    if ((gamepad == NULL) || (input == NULL) || (input_buffer_size < 5)) {
+    return (uint16_t)(p[0] | ((uint16_t)p[1] << 8));
+}
+
+static inline int16_t rd_s16(const uint8_t *p)
+{
+    return (int16_t)rd_u16(p);
+}
+
+bool gamepad_parse_payload(Gamepad *gamepad, const uint8_t *payload, size_t length)
+{
+    if ((gamepad == NULL) || (payload == NULL) ||
+        (length < GAMEPAD_PAYLOAD_BASE_SIZE)) {
         return false;
     }
 
-    uint8_t truncated_data[24];
-    memset(truncated_data, 0, sizeof(truncated_data));
+    uint16_t buttons = rd_u16(payload + GP_OFF_BUTTONS);
 
-    // loop through buffer until FSS is found. Current FSS is [255, 255, 255]
-    size_t buffer_index = 0;
-    while (buffer_index + 2 < input_buffer_size)
-    {
-        if (input[buffer_index] == 255 && input[buffer_index + 1] == 255 && input[buffer_index + 2] == 255)
-        {
-            // found FSS
-            if (buffer_index + 5 <= input_buffer_size)
-            {
-                // Found frame length in buffer
-                uint8_t frame_length = input[buffer_index + 4]; // bufferIndex + length of FSS + 1 (commandID)
-                size_t  frame_copy_size = (size_t)frame_length + 2U;
-                if ((frame_copy_size <= sizeof(truncated_data)) &&
-                    (buffer_index + 5U + frame_length <= input_buffer_size))
-                {
-                    // An entire frame has been found.
-                    // +3 so truncated_data starts at CommandID; frame_length+2 covers
-                    // the CommandID and FrameLength bytes.
-                    memcpy(truncated_data, input + buffer_index + 3, frame_copy_size);
-                    break;
-                }
-            }
-            return false; // unable to find a full frame in the buffer
-        }
-        buffer_index++;
-    }
-    if (buffer_index + 2 >= input_buffer_size) {
-        return false;
-    }
+    gamepad->left_analog_x  = rd_s16(payload + GP_OFF_LX);
+    gamepad->left_analog_y  = rd_s16(payload + GP_OFF_LY);
+    gamepad->right_analog_x = rd_s16(payload + GP_OFF_RX);
+    gamepad->right_analog_y = rd_s16(payload + GP_OFF_RY);
 
-    bool parsed = false;
-    switch (truncated_data[0])
-    {
-        case FULL_STATE:
-            gamepad->right_trigger  = truncated_data[2];
-            gamepad->left_trigger   = truncated_data[3];
-            gamepad->right_button   = truncated_data[4];
-            gamepad->left_button    = truncated_data[5];
-            gamepad->right_analog_x = truncated_data[6];
-            gamepad->right_analog_y = truncated_data[7];
-            gamepad->left_analog_x  = truncated_data[8];
-            gamepad->left_analog_y  = truncated_data[9];
-            gamepad->x_button       = truncated_data[10];
-            gamepad->a_button       = truncated_data[11];
-            gamepad->b_button       = truncated_data[12];
-            gamepad->y_button       = truncated_data[13];
-            gamepad->valid          = true;
-            snprintf(gamepad->status, sizeof(gamepad->status),
-                    "RT:%d LT:%d RB:%d LB:%d RA.X:%d RA.Y:%d LA.X:%d LA.Y:%d X:%d A:%d B:%d Y:%d",
-                    gamepad->right_trigger, gamepad->left_trigger, gamepad->right_button,
-                    gamepad->left_button, gamepad->right_analog_x, gamepad->right_analog_y,
-                    gamepad->left_analog_x, gamepad->left_analog_y, gamepad->x_button,
-                    gamepad->a_button, gamepad->b_button, gamepad->y_button);
-            parsed = true;
-            break;
-        default:
-            /* Unrecognized CommandID: don't report a (zeroed) frame as valid,
-             * otherwise the motor task would be driven with all-zero input. */
-            gamepad->valid = false;
-            break;
-    }
-    memset(truncated_data, 0, sizeof(truncated_data));
-    return parsed;
+    /* Triggers arrive as uint16 0..65535; the motor maps right_trigger over
+     * 0..255, so scale both into a byte range (>> 8) to keep that contract. */
+    gamepad->left_trigger   = rd_u16(payload + GP_OFF_L2) >> 8;
+    gamepad->right_trigger  = rd_u16(payload + GP_OFF_R2) >> 8;
+
+    gamepad->a_button     = (buttons & BTN_CROSS)    ? 1 : 0;
+    gamepad->b_button     = (buttons & BTN_CIRCLE)   ? 1 : 0;
+    gamepad->x_button     = (buttons & BTN_SQUARE)   ? 1 : 0;
+    gamepad->y_button     = (buttons & BTN_TRIANGLE) ? 1 : 0;
+    gamepad->left_button  = (buttons & BTN_L1)       ? 1 : 0;
+    gamepad->right_button = (buttons & BTN_R1)       ? 1 : 0;
+    gamepad->valid        = true;
+
+    snprintf(gamepad->status, sizeof(gamepad->status),
+             "RT:%d LT:%d RB:%d LB:%d RA(%d,%d) LA(%d,%d) X:%d A:%d B:%d Y:%d",
+             gamepad->right_trigger, gamepad->left_trigger, gamepad->right_button,
+             gamepad->left_button, gamepad->right_analog_x, gamepad->right_analog_y,
+             gamepad->left_analog_x, gamepad->left_analog_y, gamepad->x_button,
+             gamepad->a_button, gamepad->b_button, gamepad->y_button);
+    return true;
 }

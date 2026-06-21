@@ -15,6 +15,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 
 #include <xdc/std.h>
 #include <ti/sysbios/BIOS.h>
@@ -33,6 +34,18 @@
 #define SESSION_RX_DUMP_INTERVAL_S 3
 /* Bytes of each dumped frame to show. */
 #define SESSION_RX_DUMP_BYTES      24
+
+/*
+ * Wire framing (see docs/gamepad-protocol.md): a continuous TCP stream of
+ * messages, each a fixed 16-byte little-endian envelope followed by `length`
+ * payload bytes. envelope[0] is the message type; envelope[2:4] is the uint16
+ * payload length. There are no delimiters, so we length-prefix-parse.
+ */
+#define NET_ENVELOPE_SIZE   16
+#define NET_MSG_GAMEPAD     0x01
+/* Largest payload we accept (base 26, +12 sensors = 38); cap for resync sanity. */
+#define NET_MAX_PAYLOAD     64
+#define NET_FRAME_MAX       (NET_ENVELOPE_SIZE + NET_MAX_PAYLOAD)
 
 void net_socket_set_nonblocking(int fd, uint32_t enable)
 {
@@ -74,7 +87,9 @@ static bool keepalive_ok(int fd)
 
 uint32_t net_service_session(int fd, Mailbox_Handle mail)
 {
-    uint8_t  buffer[APP_TCP_PACKET_SIZE];
+    /* Room for one full frame of carry-over plus a whole recv. */
+    uint8_t  buffer[NET_FRAME_MAX + APP_TCP_PACKET_SIZE];
+    size_t   have        = 0;   /* bytes buffered (partial-frame carry + new) */
     uint32_t last_rx_s   = Seconds_get();
     uint32_t last_dump_s = 0;
     uint32_t frames      = 0;
@@ -87,35 +102,68 @@ uint32_t net_service_session(int fd, Mailbox_Handle mail)
     for (;;) {
         GPIO_toggle(Board_LED1);
 
-        int n = recv(fd, buffer, sizeof(buffer), 0);
+        int n = recv(fd, buffer + have, APP_TCP_PACKET_SIZE, 0);
 
         if (n > 0) {
             last_rx_s = Seconds_get();
 
-            /* Periodically dump the raw frame so the wire encoding can be
-             * checked against what the parser expects. */
+            /* Periodically dump the raw bytes just received so the wire encoding
+             * can be checked against docs/gamepad-protocol.md. */
             if (SESSION_RX_DUMP_INTERVAL_S > 0 &&
                 (last_rx_s - last_dump_s) >= SESSION_RX_DUMP_INTERVAL_S) {
                 last_dump_s = last_rx_s;
-                log_rx_frame(buffer, n);
+                log_rx_frame(buffer + have, n);
             }
 
+            have += (size_t)n;
+
+            /* Frame-walk: pull every complete envelope+payload out of the buffer.
+             * Motor control is state (not events), so we keep only the most
+             * recent gamepad frame from this batch and post that one. */
+            size_t  off        = 0;
             Gamepad gamepad_state = { 0 };
-            /* Parse only the bytes actually received (n), not the whole buffer:
-             * stale bytes past n would otherwise be scanned for a frame. */
-            if (command_frame_parse(&gamepad_state, buffer, (size_t)n)) {
-                frames++;
+            bool    have_frame = false;
+
+            while (have - off >= NET_ENVELOPE_SIZE) {
+                const uint8_t *env    = buffer + off;
+                uint16_t       length = (uint16_t)(env[2] | ((uint16_t)env[3] << 8));
+
+                if (length > NET_MAX_PAYLOAD) {
+                    /* Implausible length: the stream desynced. Skip a byte and
+                     * re-scan rather than trusting a corrupt frame. */
+                    off++;
+                    continue;
+                }
+                if ((have - off) < (NET_ENVELOPE_SIZE + (size_t)length)) {
+                    break;  /* rest of this frame hasn't arrived yet */
+                }
+
+                if (env[0] == NET_MSG_GAMEPAD &&
+                    gamepad_parse_payload(&gamepad_state,
+                                          env + NET_ENVELOPE_SIZE, length)) {
+                    have_frame = true;
+                    frames++;
+                }
+                off += NET_ENVELOPE_SIZE + (size_t)length;
+            }
+
+            if (have_frame) {
                 /* Non-blocking: a full motor mailbox means the consumer is
-                 * behind; drop this frame rather than stall the network loop —
-                 * the next frame supersedes it anyway. */
+                 * behind; drop this frame rather than stall the network loop. */
                 if (!Mailbox_post(mail, &gamepad_state, BIOS_NO_WAIT)) {
                     uart_log("[session] motor mailbox full; frame dropped\n");
                 }
+                if (send(fd, gamepad_state.status,
+                         sizeof(gamepad_state.status), 0) < 0) {
+                    uart_log("[session] send failed; closing peer\n");
+                    break;
+                }
             }
 
-            if (send(fd, gamepad_state.status, sizeof(gamepad_state.status), 0) < 0) {
-                uart_log("[session] send failed; closing peer\n");
-                break;
+            /* Carry the partial-frame remainder to the next recv. */
+            have -= off;
+            if (off > 0 && have > 0) {
+                memmove(buffer, buffer + off, have);
             }
         } else if (n == 0) {
             uart_log("[session] peer closed connection\n");

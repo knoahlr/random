@@ -32,6 +32,15 @@ typedef struct ControlInterpreter
 } Gamepad;
 
 
-bool command_frame_parse(Gamepad *gamepad, uint8_t *input, size_t input_buffer_size);
+/* Base GamepadState payload size, see docs/gamepad-protocol.md. */
+#define GAMEPAD_PAYLOAD_BASE_SIZE 26
+
+/*
+ * Decode a GamepadState payload (the bytes after the 16-byte message envelope)
+ * into `gamepad`. `length` is the envelope's payload byte count; the base form
+ * is 26 bytes (sensor frames are 38 and decode the same base fields). All
+ * multi-byte fields are little-endian. Returns false if the payload is short.
+ */
+bool gamepad_parse_payload(Gamepad *gamepad, const uint8_t *payload, size_t length);
 
 #endif /* GAMEPADINPUT_H_ */

@@ -293,7 +293,7 @@ static void SPITivaDMA_configDMA(SPI_Handle handle, SPI_Transaction *transaction
     uint32_t                   ssiIndex;
     size_t                     transferBytes;
     SPITivaDMA_Object         *object = handle->object;
-    SPITivaDMA_HWAttrs const  * = handle->hwAttrs;
+    SPITivaDMA_HWAttrs const  *hwAttrs = handle->hwAttrs;
 
     ssiIndex = SPITivaDMA_getSsiIndex(hwAttrs->baseAddr);
     transferBytes = SPITivaDMA_transferBytes(object, transaction);
