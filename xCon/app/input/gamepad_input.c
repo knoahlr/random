@@ -53,6 +53,7 @@ bool command_frame_parse(Gamepad *gamepad, uint8_t *input, size_t input_buffer_s
         return false;
     }
 
+    bool parsed = false;
     switch (truncated_data[0])
     {
         case FULL_STATE:
@@ -75,11 +76,14 @@ bool command_frame_parse(Gamepad *gamepad, uint8_t *input, size_t input_buffer_s
                     gamepad->left_button, gamepad->right_analog_x, gamepad->right_analog_y,
                     gamepad->left_analog_x, gamepad->left_analog_y, gamepad->x_button,
                     gamepad->a_button, gamepad->b_button, gamepad->y_button);
+            parsed = true;
             break;
         default:
+            /* Unrecognized CommandID: don't report a (zeroed) frame as valid,
+             * otherwise the motor task would be driven with all-zero input. */
             gamepad->valid = false;
             break;
     }
     memset(truncated_data, 0, sizeof(truncated_data));
-    return true;
+    return parsed;
 }
