@@ -20,6 +20,7 @@
 
 #include <xdc/std.h>
 #include <ti/sysbios/knl/Mailbox.h>
+#include <ti/sysbios/hal/Seconds.h>
 #include <ti/drivers/PWM.h>
 
 #include "Board.h"
@@ -29,8 +30,9 @@
 #define MOTOR_TRIGGER_DEADZONE  50      /* trigger counts below this => min duty. */
 /* No command within this window stops the motors (failsafe on link loss). */
 #define MOTOR_FAILSAFE_TICKS    500
-/* Decimate the per-frame gamepad log so it can't flood the console queue. */
-#define MOTOR_LOG_EVERY_N       50
+/* Log an incoming gamepad frame at most once per this many seconds, so the
+ * console shows a live sample of activity without flooding the log queue. */
+#define MOTOR_LOG_INTERVAL_S    3u
 
 static PWM_Handle pwm1;
 static PWM_Handle pwm2;
@@ -74,13 +76,15 @@ static void motors_set_duty(uint16_t duty)
 
 static void motor_run_loop(Mailbox_Handle mail)
 {
-    uint32_t frame_count = 0;
+    uint32_t last_log_s = 0;  /* 0 => log the first frame after boot */
 
     for (;;) {
         Gamepad gamepad_state = { 0 };
 
         if (Mailbox_pend(mail, &gamepad_state, MOTOR_FAILSAFE_TICKS)) {
-            if ((frame_count++ % MOTOR_LOG_EVERY_N) == 0) {
+            uint32_t now_s = Seconds_get();
+            if ((now_s - last_log_s) >= MOTOR_LOG_INTERVAL_S) {
+                last_log_s = now_s;
                 log_gamepad_input(&gamepad_state);
             }
             motors_set_duty(trigger_to_duty(gamepad_state.right_trigger));
