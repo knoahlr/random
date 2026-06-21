@@ -66,6 +66,12 @@ int16_t cm_add_connection_profile(struct wlan_profile_info *profile);
 /* Store a WPA/WPA2 profile from plain console arguments. */
 int16_t cm_add_wpa2_profile(const char *ssid, const char *passkey);
 
+/* Connect directly to a WPA/WPA2 access point without storing a profile. */
+int16_t cm_connect_wpa2_ap(const char *ssid, const char *passkey);
+
+/* Print and return the current WLAN association status. */
+bool cm_status(void);
+
 /*
  * Read the profiles stored on the NWP into saved_profiles. Note the NWP does not
  * return profile keys. Returns the number of profiles found.

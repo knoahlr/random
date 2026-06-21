@@ -26,6 +26,29 @@ static int cmd_connect(int argc, char *argv[])
         return CMDLINE_INVALID_ARG;
     }
 
+    rc = cm_connect_wpa2_ap(argv[1], argv[2]);
+    if (rc == CM_PROFILE_INVALID_ARG) {
+        console_puts("ssid must be 1-32 chars; WPA/WPA2 passkey must be 8-64 chars\r\n");
+        return CMDLINE_INVALID_ARG;
+    }
+    if (rc < 0) {
+        console_printf("connect failed: %d\r\n", rc);
+        return rc;
+    }
+
+    console_printf("connect requested for '%s'\r\n", argv[1]);
+    return 0;
+}
+
+static int cmd_add_profile(int argc, char *argv[])
+{
+    int16_t rc;
+
+    if (argc != 3) {
+        console_puts("usage: add-profile <ssid> <passkey>\r\n");
+        return CMDLINE_INVALID_ARG;
+    }
+
     rc = cm_add_wpa2_profile(argv[1], argv[2]);
     if (rc == CM_PROFILE_INVALID_ARG) {
         console_puts("ssid must be 1-32 chars; WPA/WPA2 passkey must be 8-64 chars\r\n");
@@ -58,6 +81,19 @@ static int cmd_profiles(int argc, char *argv[])
     return 0;
 }
 
+static int cmd_status(int argc, char *argv[])
+{
+    (void)argv;
+
+    if (argc != 1) {
+        console_puts("usage: status\r\n");
+        return CMDLINE_INVALID_ARG;
+    }
+
+    (void)cm_status();
+    return 0;
+}
+
 static int cmd_clear_profiles(int argc, char *argv[])
 {
     (void)argv;
@@ -76,6 +112,8 @@ static int cmd_clear_profiles(int argc, char *argv[])
 tCmdLineEntry g_psCmdTable[] = {
     { "help",           cmd_help,           "list console commands" },
     { "connect",        cmd_connect,        "connect <ssid> <passkey>" },
+    { "add-profile",    cmd_add_profile,    "add-profile <ssid> <passkey>" },
+    { "status",         cmd_status,         "show WiFi connection status" },
     { "profiles",       cmd_profiles,       "list stored WiFi profiles" },
     { "clear-profiles", cmd_clear_profiles, "delete stored WiFi profiles" },
     { NULL,             NULL,               NULL }
