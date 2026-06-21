@@ -1,31 +1,25 @@
-/* Local Platform Specific Header file */
-#include "socket.h"
-#include "udp_discovery.h"
+/*
+ * server.h
+ *
+ * WiFi command server: streams gamepad command frames from a controller into
+ * the motor mailbox.
+ */
+#ifndef APP_COMMS_SERVER_H
+#define APP_COMMS_SERVER_H
 
-#include <string.h>
-#include <stdbool.h>
-#include <stdio.h>
-
-#include <ti/sysbios/hal/Seconds.h>
-#include <ti/sysbios/knl/Mailbox.h>
-#include <ti/sysbios/knl/Semaphore.h>
+#include <xdc/std.h>
 
 /*
-     Server method to continuously listen for commands.
-     Gamepad input sampled every 500ms.
+ * Server task entry.
+ *   arg0 = motor Mailbox_Handle (parsed gamepad frames are posted here)
+ *   arg1 = connection Semaphore_Handle (posted by the connection manager once
+ *          WiFi is associated with an IP)
+ *
+ * After the link is up the task picks a role every cycle via UDP discovery:
+ *   - SERVER: listen on APP_TCP_SERVER_PORT and accept a controller, or
+ *   - CLIENT: if a relay app announces itself on the LAN, connect out to it.
+ * Either way an established session is serviced by the same frame loop.
  */
-
-#define MAILBOX_TIMEOUT (20 * Clock_tickPeriod)
-#define CONN_RETRY_TIMER_S 10
-
-// Device operation mode
-typedef enum {
-    SERVER_MODE = 0,
-    CLIENT_MODE = 1
-} server_state_t;
-
-bool is_conn_active(int client_fd);
-
 void server_task(UArg arg0, UArg arg1);
 
-void tcp_message_handler(int server, Mailbox_Handle mail);
+#endif /* APP_COMMS_SERVER_H */

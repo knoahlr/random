@@ -48,6 +48,7 @@
 #include "Board.h"
 
 #include <hardware/dc_motor_control.h>
+#include <input/gamepad_input.h>
 #include <comms/connection_manager.h>
 #include <comms/server.h>
 #include <comms/uart_interface.h>
