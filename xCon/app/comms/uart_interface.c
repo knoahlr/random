@@ -125,13 +125,19 @@ void uart_messaging_service(UArg arg0){
     for(;;) {
         bool wrote_log = false;
         while (Mailbox_pend(uart_log_mbox, &msg, BIOS_NO_WAIT)) {
+            /* Break off the prompt line before the first async log line so the
+             * output never lands on top of a half-typed command. */
+            if (!wrote_log) {
+                console_before_async_output();
+                wrote_log = true;
+            }
             UARTwrite(msg.data, msg.len);
             /* Board_LED0 is the UART activity indicator: toggles on every line
              * pushed to the wire. No other task drives this LED. */
             GPIO_toggle(Board_LED0);
-            wrote_log = true;
         }
         if (wrote_log) {
+            /* Redraw the prompt and restore whatever the user had typed. */
             console_after_async_output();
         }
 
