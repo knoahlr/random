@@ -89,6 +89,9 @@ set(APP_SOURCES
     ${XCON}/app/input/gamepad_input.c
     ${XCON}/app/hardware/dc_motor_control.c
     ${XCON}/app/hardware/stepper_control.c
+    ${XCON}/app/console/cmdline.c
+    ${XCON}/app/console/console.c
+    ${XCON}/app/console/console_commands.c
     ${XCON}/app/comms/uart_interface.c
     ${XCON}/sysbios/newlib_locks.c   # C-library lock retargeting for gcc 13.2 newlib (see docs/newlib-locking-port.md)
     ${XCON}/sysbios/syscalls_uart.c  # newlib stdio/_sbrk retarget off semihosting onto UART0 (see docs/uart-console-retarget.md)

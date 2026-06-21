@@ -125,6 +125,28 @@ static Void EK_TM4C129EXL_usbBusFaultHwi(UArg arg)
 }
 
 /*
+ * UARTStdioIntHandler owns the UART0 interrupt bookkeeping and moves RX bytes
+ * into its software ring. The app hook wakes the console service task only for
+ * RX-related interrupts, so command input is event-driven.
+ */
+static Void EK_TM4C129EXL_uart0ConsoleHwi(UArg arg)
+{
+    uint32_t int_status;
+
+    (void)arg;
+
+    extern void UARTStdioIntHandler(void);
+    extern void uart_console_rx_isr_hook(void);
+
+    int_status = UARTIntStatus(UART0_BASE, true);
+    UARTStdioIntHandler();
+
+    if (int_status & (UART_INT_RX | UART_INT_RT)) {
+        uart_console_rx_isr_hook();
+    }
+}
+
+/*
  *  ======== EK_TM4C129EXL_initDMA ========
  */
 void EK_TM4C129EXL_initDMA(void)
@@ -838,15 +860,14 @@ void EK_TM4C129EXL_initUART(void)
      * buffers), so its ISR must service the UART0 interrupt. UARTStdioConfig
      * enables the NVIC line (MAP_IntEnable) but never registers a handler; under
      * SYS/BIOS the vector table is owned by Hwi, so we create a Hwi that
-     * dispatches INT_UART0 to UARTStdioIntHandler. This must exist before
-     * UARTStdioConfig enables the interrupt.
+     * dispatches INT_UART0 to a wrapper around UARTStdioIntHandler. This must
+     * exist before UARTStdioConfig enables the interrupt.
      */
-    extern void UARTStdioIntHandler(void);
     Error_Block eb;
     Hwi_Params  hwiParams;
     Error_init(&eb);
     Hwi_Params_init(&hwiParams);
-    Hwi_create(INT_UART0, (Hwi_FuncPtr)UARTStdioIntHandler, &hwiParams, &eb);
+    Hwi_create(INT_UART0, EK_TM4C129EXL_uart0ConsoleHwi, &hwiParams, &eb);
     if (Error_check(&eb)) {
         System_abort("Failed to create UART0 console Hwi");
     }
