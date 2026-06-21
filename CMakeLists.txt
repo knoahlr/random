@@ -84,6 +84,8 @@ set(APP_SOURCES
     ${XCON}/bsp/EK_TM4C129EXL.c
     ${XCON}/app/comms/connection_manager.c
     ${XCON}/app/comms/server.c
+    ${XCON}/app/comms/net_session.c
+    ${XCON}/app/comms/relay_client.c   # CLIENT model, segregated for future use (not started in main)
     ${XCON}/app/comms/inet.c
     ${XCON}/app/comms/udp_discovery.c
     ${XCON}/app/input/gamepad_input.c
