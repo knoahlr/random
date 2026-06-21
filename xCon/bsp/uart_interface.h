@@ -6,6 +6,7 @@
  */
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include <ti/sysbios/knl/Task.h>
 
@@ -42,6 +43,13 @@ void uart_log(const char *fmt, ...);
  * interrupt-driven drain can no longer flush. Adds CR before LF.
  */
 void uart_log_fatal(const char *s);
+
+/*
+ * Fatal-path decimal output that avoids printf/vsnprintf/newlib locks. Intended
+ * for Hwi/fault paths that must put one diagnostic value on UART before abort.
+ */
+void uart_log_fatal_u32(const char *prefix, uint32_t value, const char *suffix);
+void uart_log_fatal_hex32(const char *prefix, uint32_t value, const char *suffix);
 
 /*
  * Console log consumer task: owns UART0, draining the log queue to the wire.

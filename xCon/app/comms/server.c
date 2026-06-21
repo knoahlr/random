@@ -17,7 +17,7 @@
 
 #include <comms/server.h>
 #include <comms/comms_config.h>
-#include <comms/uart_interface.h>
+#include <uart_interface.h>
 #include <comms/net_session.h>
 
 #include <stdbool.h>

@@ -12,7 +12,7 @@
 
 #include <comms/relay_client.h>
 #include <comms/comms_config.h>
-#include <comms/uart_interface.h>
+#include <uart_interface.h>
 #include <comms/udp_discovery.h>
 #include <comms/inet.h>
 #include <comms/net_session.h>

@@ -11,7 +11,7 @@
  */
 
 #include <hardware/dc_motor_control.h>
-#include <comms/uart_interface.h>
+#include <uart_interface.h>
 #include <input/gamepad_input.h>
 
 #include <stdbool.h>

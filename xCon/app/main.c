@@ -51,7 +51,7 @@
 #include <input/gamepad_input.h>
 #include <comms/connection_manager.h>
 #include <comms/server.h>
-#include <comms/uart_interface.h>
+#include <uart_interface.h>
 /* <time.h> intentionally omitted: it is unused here and pulls newlib's
  * <sys/select.h>, whose select/fd_set/timeval collide with SimpleLink's BSD
  * socket layer (SL_INC_STD_BSD_API_NAMING). Time comes from SYS/BIOS Seconds. */

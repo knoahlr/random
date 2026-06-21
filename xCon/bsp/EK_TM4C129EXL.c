@@ -48,6 +48,8 @@
 #include <inc/hw_memmap.h>
 #include <inc/hw_types.h>
 #include <inc/hw_gpio.h>
+#include <inc/hw_ssi.h>
+#include <inc/hw_udma.h>
 
 #include <driverlib/flash.h>
 #include <driverlib/gpio.h>
@@ -62,6 +64,7 @@
 #include <utils/uartstdio.h>
 
 #include "EK_TM4C129EXL.h"
+#include "uart_interface.h"
 
 /*
  * System clock the catalog Boot module establishes at reset
@@ -91,7 +94,8 @@ extern int USBSerialPPP_NIMUInit();
 #elif defined(__GNUC__)
 __attribute__ ((aligned (1024)))
 #endif
-static tDMAControlTable dmaControlTable[32];
+/* DriverLib indexes primary channels 0-31 and alternate channels 32-63. */
+static tDMAControlTable dmaControlTable[64];
 static bool dmaInitialized = false;
 
 /* Hwi_Struct used in the initDMA Hwi_construct call */
@@ -100,14 +104,151 @@ static Hwi_Struct dmaHwiStruct;
 /* Hwi_Struct used in the usbBusFault Hwi_construct call */
 static Hwi_Struct usbBusFaultHwiStruct;
 
+static void dmaErrorLogReg(const char *name, uint32_t value)
+{
+    uart_log_fatal("[bsp][dma] ");
+    uart_log_fatal(name);
+    uart_log_fatal("=");
+    uart_log_fatal_hex32("", value, "");
+    uart_log_fatal("\n");
+}
+
+static uint32_t dmaControlTransferSize(uint32_t control)
+{
+    uint32_t mode = control & UDMA_CHCTL_XFERMODE_M;
+
+    if (mode == UDMA_CHCTL_XFERMODE_STOP) {
+        return 0;
+    }
+
+    return ((control & UDMA_CHCTL_XFERSIZE_M) >> UDMA_CHCTL_XFERSIZE_S) + 1;
+}
+
+static uint32_t dmaControlStartAddress(uint32_t end,
+                                       uint32_t transfer_size,
+                                       uint32_t inc_mask,
+                                       uint32_t inc_none,
+                                       uint32_t inc_shift)
+{
+    uint32_t inc = inc_mask;
+
+    if ((transfer_size == 0U) || (inc == inc_none)) {
+        return end;
+    }
+
+    inc >>= inc_shift;
+    return end - (transfer_size << inc) + 1U;
+}
+
+static void dmaErrorLogControlStruct(const char *prefix,
+                                     const tDMAControlTable *control)
+{
+    uint32_t transfer_size = dmaControlTransferSize(control->ui32Control);
+    uint32_t src_end = (uint32_t)control->pvSrcEndAddr;
+    uint32_t dst_end = (uint32_t)control->pvDstEndAddr;
+    uint32_t src_start = dmaControlStartAddress(
+        src_end, transfer_size, control->ui32Control & UDMA_CHCTL_SRCINC_M,
+        UDMA_CHCTL_SRCINC_NONE, 26U);
+    uint32_t dst_start = dmaControlStartAddress(
+        dst_end, transfer_size, control->ui32Control & UDMA_CHCTL_DSTINC_M,
+        UDMA_CHCTL_DSTINC_NONE, 30U);
+
+    dmaErrorLogReg("src.start", src_start);
+    dmaErrorLogReg("src.end", src_end);
+    dmaErrorLogReg("dst.start", dst_start);
+    dmaErrorLogReg("dst.end", dst_end);
+    dmaErrorLogReg("ctl", control->ui32Control);
+    uart_log_fatal("[bsp][dma] ");
+    uart_log_fatal(prefix);
+    uart_log_fatal_u32("=", transfer_size, " remaining\n");
+}
+
+static void dmaErrorLogControl(uint32_t channel, const char *name)
+{
+    tDMAControlTable *primary_base = (tDMAControlTable *)(HWREG(UDMA_CTLBASE) &
+                                                          UDMA_CTLBASE_ADDR_M);
+    tDMAControlTable *alternate_base = (tDMAControlTable *)HWREG(UDMA_ALTBASE);
+    tDMAControlTable *primary = &primary_base[channel];
+    tDMAControlTable *alternate = &alternate_base[channel];
+
+    uart_log_fatal("[bsp][dma] ch");
+    uart_log_fatal_u32("", channel, " ");
+    uart_log_fatal(name);
+    uart_log_fatal("\n");
+
+    uart_log_fatal("[bsp][dma] primary\n");
+    dmaErrorLogControlStruct("pri.xfersize", primary);
+    uart_log_fatal("[bsp][dma] alternate\n");
+    dmaErrorLogControlStruct("alt.xfersize", alternate);
+}
+
+static void dmaErrorLogSsi(uint32_t base, uint32_t peripheral, const char *name)
+{
+    uart_log_fatal("[bsp][dma] ");
+    uart_log_fatal(name);
+    uart_log_fatal("\n");
+
+    if (!SysCtlPeripheralReady(peripheral)) {
+        uart_log_fatal("[bsp][dma] ssi not ready; skipping register dump\n");
+        return;
+    }
+
+    dmaErrorLogReg("ssi.cr0", HWREG(base + SSI_O_CR0));
+    dmaErrorLogReg("ssi.cr1", HWREG(base + SSI_O_CR1));
+    dmaErrorLogReg("ssi.sr", HWREG(base + SSI_O_SR));
+    dmaErrorLogReg("ssi.cpsr", HWREG(base + SSI_O_CPSR));
+    dmaErrorLogReg("ssi.im", HWREG(base + SSI_O_IM));
+    dmaErrorLogReg("ssi.ris", HWREG(base + SSI_O_RIS));
+    dmaErrorLogReg("ssi.mis", HWREG(base + SSI_O_MIS));
+    dmaErrorLogReg("ssi.dmactl", HWREG(base + SSI_O_DMACTL));
+    dmaErrorLogReg("ssi.pp", HWREG(base + SSI_O_PP));
+    dmaErrorLogReg("ssi.cc", HWREG(base + SSI_O_CC));
+}
+
+static void dmaErrorLogState(uint32_t dma_error)
+{
+    uart_log_fatal_u32("[bsp] DMA error code: ", dma_error, "\n");
+    uart_log_fatal_u32("[bsp][dma] ctl entries: ", sizeof(dmaControlTable) / sizeof(dmaControlTable[0]), "\n");
+
+    dmaErrorLogReg("udma.stat", HWREG(UDMA_STAT));
+    dmaErrorLogReg("udma.cfg", HWREG(UDMA_CFG));
+    dmaErrorLogReg("udma.ctlbase", HWREG(UDMA_CTLBASE));
+    dmaErrorLogReg("udma.altbase", HWREG(UDMA_ALTBASE));
+    dmaErrorLogReg("udma.waitstat", HWREG(UDMA_WAITSTAT));
+    dmaErrorLogReg("udma.useburst", HWREG(UDMA_USEBURSTSET));
+    dmaErrorLogReg("udma.reqmask", HWREG(UDMA_REQMASKSET));
+    dmaErrorLogReg("udma.enaset", HWREG(UDMA_ENASET));
+    dmaErrorLogReg("udma.altset", HWREG(UDMA_ALTSET));
+    dmaErrorLogReg("udma.prioset", HWREG(UDMA_PRIOSET));
+    dmaErrorLogReg("udma.chis", HWREG(UDMA_CHIS));
+    dmaErrorLogReg("udma.chasgn", HWREG(UDMA_CHASGN));
+    dmaErrorLogReg("udma.chmap0", HWREG(UDMA_CHMAP0));
+    dmaErrorLogReg("udma.chmap1", HWREG(UDMA_CHMAP1));
+    dmaErrorLogReg("udma.chmap2", HWREG(UDMA_CHMAP2));
+    dmaErrorLogReg("udma.chmap3", HWREG(UDMA_CHMAP3));
+
+    dmaErrorLogControl(12, "ssi2rx");
+    dmaErrorLogControl(13, "ssi2tx");
+    dmaErrorLogControl(14, "ssi3rx");
+    dmaErrorLogControl(15, "ssi3tx");
+
+    dmaErrorLogSsi(SSI2_BASE, SYSCTL_PERIPH_SSI2, "ssi2");
+    dmaErrorLogSsi(SSI3_BASE, SYSCTL_PERIPH_SSI3, "ssi3");
+}
+
 /*
  *  ======== dmaErrorHwi ========
  */
 static Void dmaErrorHwi(UArg arg)
 {
-    System_printf("DMA error code: %d\n", uDMAErrorStatusGet());
+    uint32_t dma_error = uDMAErrorStatusGet();
+
+    (void)arg;
+
+    dmaErrorLogState(dma_error);
     uDMAErrorStatusClear();
-    System_abort("DMA error!!");
+    uart_log_fatal("[bsp] DMA error!!\n");
+    System_abort("[bsp] DMA error!!");
 }
 
 /*

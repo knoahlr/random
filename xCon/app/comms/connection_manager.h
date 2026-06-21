@@ -17,7 +17,7 @@
 #include <ti/drivers/GPIO.h>
 #include <ti/drivers/WiFi.h>
 
-#include <comms/uart_interface.h>
+#include <uart_interface.h>
 
 #include "Board.h"
 

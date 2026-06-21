@@ -20,7 +20,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-#include <comms/uart_interface.h>
+#include <uart_interface.h>
 #include <console/console.h>
 
 #include <ti/sysbios/BIOS.h>
@@ -95,7 +95,7 @@ void uart_log_fatal(const char *s){
     /*
      * Blocking, polled write straight to the UART0 TX FIFO, bypassing the queue
      * and the uartstdio TX ring. For fatal paths that are about to System_abort
-     * (which disables interrupts, so the ISR can no longer drain the ring) — this
+     * (which disables interrupts, so the ISR can no longer drain the ring), this
      * guarantees the reason reaches the wire before the core halts.
      */
     while (*s) {
@@ -104,6 +104,41 @@ void uart_log_fatal(const char *s){
         }
         UARTCharPut(UART0_BASE, (unsigned char)*s++);
     }
+}
+
+void uart_log_fatal_u32(const char *prefix, uint32_t value, const char *suffix)
+{
+    char digits[10];
+    uint32_t count = 0;
+
+    uart_log_fatal(prefix);
+
+    do {
+        digits[count++] = (char)('0' + (value % 10));
+        value /= 10;
+    } while ((value != 0) && (count < sizeof(digits)));
+
+    while (count > 0) {
+        char c = digits[--count];
+        UARTCharPut(UART0_BASE, (unsigned char)c);
+    }
+
+    uart_log_fatal(suffix);
+}
+
+void uart_log_fatal_hex32(const char *prefix, uint32_t value, const char *suffix)
+{
+    static const char hex[] = "0123456789abcdef";
+
+    uart_log_fatal(prefix);
+    uart_log_fatal("0x");
+
+    for (int shift = 28; shift >= 0; shift -= 4) {
+        char c = hex[(value >> shift) & 0x0f];
+        UARTCharPut(UART0_BASE, (unsigned char)c);
+    }
+
+    uart_log_fatal(suffix);
 }
 
 void uart_messaging_service(UArg arg0){

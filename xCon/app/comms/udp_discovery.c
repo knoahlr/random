@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <ti/sysbios/hal/Seconds.h>
-#include <comms/uart_interface.h>
+#include <uart_interface.h>
 #include "socket.h"
 #include "EK_TM4C129EXL.h"
 

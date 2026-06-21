@@ -78,11 +78,11 @@ handler, and under SYS/BIOS the vector table is owned by Hwi. So
 unclaimed: the TI-RTOS `UARTTiva` driver only grabs `INT_UART0` on `UART_open`,
 which this app never calls for UART0.)
 
-Console logging is **decoupled** in `uart_interface.c`. Producers in any task
-call `uart_log(fmt, ...)`, which `vsnprintf`s the line and posts it to a SYS/BIOS
-**Mailbox** (`uart_log_init()` constructs it in `main` before `BIOS_start`). A
-single consumer task — `uart_messaging_service`, started in `main` — owns UART0
-and drains the queue with `UARTwrite`. This:
+Console logging is **decoupled** in `xCon/bsp/uart_interface.c`. Producers in
+any task call `uart_log(fmt, ...)`, which `vsnprintf`s the line and posts it to
+a SYS/BIOS **Mailbox** (`uart_log_init()` constructs it in `main` before
+`BIOS_start`). A single consumer task — `uart_messaging_service`, started in
+`main` — owns UART0 and drains the queue with `UARTwrite`. This:
 
 - **serializes** output, so the concurrent producer tasks (connection manager,
   server, motor control, SimpleLink event callbacks) never interleave a line;
