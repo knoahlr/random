@@ -697,8 +697,12 @@ void EK_TM4C129EXL_initPWM(void)
     GPIOPinConfigure(GPIO_PK4_M0PWM6);
     GPIOPinTypePWM(GPIO_PORTK_BASE, GPIO_PIN_4|GPIO_PIN_5);
 
+    /* PG0 = M0PWM4 (BoosterPack 1 inner C1.4) and PG1 = M0PWM5 (BoosterPack 2
+     * C2.1) share PWM generator 2. PG0 is the 4-wheel left-rear enable; see
+     * docs/four-wheel-l298n-pinmap. */
+    GPIOPinConfigure(GPIO_PG0_M0PWM4);
     GPIOPinConfigure(GPIO_PG1_M0PWM5);
-    GPIOPinTypePWM(GPIO_PORTG_BASE, GPIO_PIN_1);
+    GPIOPinTypePWM(GPIO_PORTG_BASE, GPIO_PIN_0 | GPIO_PIN_1);
 
     PWM_init();
 }
