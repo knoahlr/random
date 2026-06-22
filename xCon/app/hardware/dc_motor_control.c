@@ -92,7 +92,7 @@ static motor_cfg_t motors[MOTOR_COUNT] = {
  * to detect reversals for the direction-change settle. */
 static int last_dir[MOTOR_COUNT];
 
-static int clampi(int v, int lo, int hi)
+static int clamp(int v, int lo, int hi)
 {
     if (v < lo) return lo;
     if (v > hi) return hi;
@@ -117,7 +117,7 @@ static void motor_set(MotorId id, int speed, StopMode stop)
 {
     motor_cfg_t *m = &motors[id];
 
-    speed = clampi(speed, -SPEED_MAX, SPEED_MAX);
+    speed = clamp(speed, -SPEED_MAX, SPEED_MAX);
 
     if (speed == 0) {
         if (stop == STOP_BRAKE) {
@@ -182,8 +182,8 @@ static void apply_wheel_speeds(const int s[MOTOR_COUNT])
  * held hard enough to demand a full active brake (s[] is then ignored). */
 static bool compute_wheel_speeds(const Gamepad *g, int s[MOTOR_COUNT])
 {
-    int rt = clampi(g->right_trigger, 0, SPEED_MAX);
-    int lt = clampi(g->left_trigger, 0, SPEED_MAX);
+    int rt = clamp(g->right_trigger, 0, SPEED_MAX);
+    int lt = clamp(g->left_trigger, 0, SPEED_MAX);
     int lx = g->left_analog_x;
     int throttle, steer, left, right;
 
@@ -204,8 +204,8 @@ static bool compute_wheel_speeds(const Gamepad *g, int s[MOTOR_COUNT])
 
     /* Stick right (lx > 0) -> right pair slower: turns right. Allowing a side to
      * go negative gives skid-steer pivots at low throttle. */
-    left  = clampi(throttle + steer, -SPEED_MAX, SPEED_MAX);
-    right = clampi(throttle - steer, -SPEED_MAX, SPEED_MAX);
+    left  = clamp(throttle + steer, -SPEED_MAX, SPEED_MAX);
+    right = clamp(throttle - steer, -SPEED_MAX, SPEED_MAX);
 
     s[MOTOR_LEFT_FRONT]  = left;
     s[MOTOR_LEFT_REAR]   = left;

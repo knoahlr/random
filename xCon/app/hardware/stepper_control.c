@@ -5,6 +5,13 @@
  *      Author: Noah Workstation
  */
 
+/*
+ * Disabled: this stepper code is not started in main(), and its pins (PH0/PH1,
+ * PK6/PK7) are now driven by the 4-wheel L298N motor driver. Kept for reference
+ * behind #if 0; see docs/four-wheel-l298n-pinmap and dc_motor_control.c.
+ */
+#if 0
+
 #include <hardware/stepper_control.h>
 
 
@@ -111,3 +118,5 @@ void full_stepper_toggle(void)
             break;
     }
 }
+
+#endif /* disabled stepper_control */
