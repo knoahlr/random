@@ -50,13 +50,7 @@ add_subdirectory(xCon/sysbios)
 # ---------------------------------------------------------------------------
 # TivaWare driverlib + uartstdio, built from source (prebuilt .lib is TI-format).
 # ---------------------------------------------------------------------------
-file(GLOB TIVAWARE_DRIVERLIB ${TP}/tivaware/driverlib/*.c)
-add_library(tivaware STATIC ${TIVAWARE_DRIVERLIB} ${TP}/tivaware/utils/uartstdio.c)
-target_link_libraries(tivaware PUBLIC sdk_config)
-target_compile_options(tivaware PRIVATE -w)
-# TivaWare selects its per-compiler inline-asm (e.g. cpu.c CPUcpsie/CPUcpsid)
-# with the legacy `gcc` macro, not __GNUC__. Without it cpu.c compiles empty.
-target_compile_definitions(tivaware PRIVATE gcc)
+add_subdirectory(xCon/tivaware)
 
 # ---------------------------------------------------------------------------
 # Prebuilt GNU (.am4fg) SDK libraries: TI drivers, WiFi host driver, RTOS ports.
