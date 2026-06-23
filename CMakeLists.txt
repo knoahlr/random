@@ -14,7 +14,6 @@ set(TP  ${XCON}/third_party)
 set(SDK ${TP}/sdk)
 set(WIFI ${SDK}/tidrivers/packages/ti/mw/wifi/cc3x00)
 set(GEN_DIR ${XCON}/generated CACHE PATH "XDC configuro output" FORCE)
-
 # ---------------------------------------------------------------------------
 # Shared include paths + defines used consistently by the kernel and the app.
 # ---------------------------------------------------------------------------
@@ -46,7 +45,7 @@ target_compile_definitions(sdk_config INTERFACE
 # ---------------------------------------------------------------------------
 # SYS/BIOS kernel, built from source (validates without the bootstrap).
 # ---------------------------------------------------------------------------
-include(${XCON}/sysbios/sysbios.cmake)
+add_subdirectory(xCon/sysbios)
 
 # ---------------------------------------------------------------------------
 # TivaWare driverlib + uartstdio, built from source (prebuilt .lib is TI-format).

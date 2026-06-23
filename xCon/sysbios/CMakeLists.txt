@@ -1,10 +1,18 @@
+# SYS/BIOS kernel component.
+#
 # Builds SYS/BIOS as a static library from the exact source set that XDC
 # `configuro` selected for xCon/sysbios/random.cfg (the 29 files listed in the
 # generated sysbios makefile). See docs/regenerating-sysbios-config.md. If random.cfg
 # changes the set of BIOS modules, re-sync this list + SYSBIOS_FEATURE_DEFS
 # from xCon/generated/package/cfg/random_pm4fg.src/sysbios/makefile.
+#
+# Path assumption: the vendored SDK lives at ../third_party/sdk relative to this
+# directory (i.e. xCon/third_party/sdk). The kernel sources are rooted there.
+# Coupling: consumes the parent-defined `sdk_config` INTERFACE target for the
+# shared include paths + xdc/tivaware defines.
 
-set(SYSBIOS_DIR ${XCON}/third_party/sdk/bios/packages/ti/sysbios)
+get_filename_component(SYSBIOS_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/sdk/bios/packages/ti/sysbios ABSOLUTE)
 
 set(SYSBIOS_C_SOURCES
     BIOS.c
