@@ -78,13 +78,13 @@ typedef struct {
 /* Pin map mirrors docs/four-wheel-l298n-pinmap and the L298N truth tables.
  * Set `inverted` per wheel once forward rotation is verified on the bench. */
 static motor_cfg_t motors[MOTOR_COUNT] = {
-    [MOTOR_LEFT_FRONT]  = { Board_PWM7, GPIO_PORTM_BASE, GPIO_PIN_6,
+    [MOTOR_LEFT_REAR]  = { Board_PWM7, GPIO_PORTM_BASE, GPIO_PIN_6,
                             GPIO_PORTQ_BASE, GPIO_PIN_1, false, NULL }, /* PK5; PM6/PQ1 */
-    [MOTOR_LEFT_REAR]   = { Board_PWM4, GPIO_PORTP_BASE, GPIO_PIN_3,
+    [MOTOR_LEFT_FRONT]   = { Board_PWM4, GPIO_PORTP_BASE, GPIO_PIN_3,
                             GPIO_PORTM_BASE, GPIO_PIN_2, false, NULL }, /* PG0; PP3/PM2 */
-    [MOTOR_RIGHT_FRONT] = { Board_PWM5, GPIO_PORTH_BASE, GPIO_PIN_0,
+    [MOTOR_RIGHT_REAR] = { Board_PWM5, GPIO_PORTH_BASE, GPIO_PIN_0,
                             GPIO_PORTH_BASE, GPIO_PIN_1, false, NULL }, /* PG1; PH0/PH1 */
-    [MOTOR_RIGHT_REAR]  = { Board_PWM6, GPIO_PORTK_BASE, GPIO_PIN_6,
+    [MOTOR_RIGHT_FRONT] = { Board_PWM6, GPIO_PORTK_BASE, GPIO_PIN_6,
                             GPIO_PORTK_BASE, GPIO_PIN_7, false, NULL }, /* PK4; PK6/PK7 */
 };
 

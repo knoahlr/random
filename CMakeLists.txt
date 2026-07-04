@@ -9,6 +9,8 @@ project(random C ASM)
 # (see docs/regenerating-sysbios-config.md).
 # ---------------------------------------------------------------------------
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(XCON ${CMAKE_SOURCE_DIR}/xCon)
 set(TP  ${XCON}/third_party)
 set(SDK ${TP}/sdk)
