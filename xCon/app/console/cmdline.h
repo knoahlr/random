@@ -1,3 +1,7 @@
+/**
+ * @file cmdline.h
+ * @brief Parse commands in place using spaces to separate arguments and TI-derived code.
+ */
 //*****************************************************************************
 //
 // cmdline.h - Prototypes for command line processing functions.
@@ -76,27 +80,34 @@ extern "C"
 // Command line function callback type.
 //
 //*****************************************************************************
+/**
+ * @brief Handle a command synchronously when called by CmdLineProcess().
+ * @param argc Supply the number of tokens, including the command name in argv[0].
+ * @param argv Supply tokens borrowed from the input buffer. Use argc to determine
+ * the number of tokens because the array has no guaranteed NULL terminator.
+ * @return The handler returns zero on success or an error code that it defines.
+ */
 typedef int (*pfnCmdLine)(int argc, char *argv[]);
 
 //*****************************************************************************
 //
-//! Structure for an entry in the command list table.
+//! Describe one entry in the command list table.
 //
 //*****************************************************************************
 typedef struct
 {
     //
-    //! A pointer to a string containing the name of the command.
+    //! Point to a string containing the command name.
     //
     const char *pcCmd;
 
     //
-    //! A function pointer to the implementation of the command.
+    //! Point to the function that implements the command.
     //
     pfnCmdLine pfnCmd;
 
     //
-    //! A pointer to a string of brief help text for the command.
+    //! Point to a string containing brief help text for the command.
     //
     const char *pcHelp;
 }
@@ -123,6 +134,18 @@ extern tCmdLineEntry g_psCmdTable[];
 // Prototypes for the APIs.
 //
 //*****************************************************************************
+/**
+ * @brief Tokenize a writable line in place and dispatch an exact command match.
+ * @param pcCmdLine Supply a non-NULL, writable string terminated by a NUL byte.
+ * The parser replaces spaces with NUL bytes.
+ * @return This function returns the handler result when a command matches. It returns
+ * CMDLINE_BAD_CMD if the input is blank or the command is unknown. It returns
+ * CMDLINE_TOO_MANY_ARGS if the input exceeds the token limit.
+ * @note Only literal spaces delimit tokens. No quoting or escaping is supported.
+ * The default limit is eight tokens including the command name. Shared argv
+ * storage prevents concurrent or nested calls. argv[argc] is not guaranteed
+ * to be NULL.
+ */
 extern int CmdLineProcess(char *pcCmdLine);
 
 //*****************************************************************************

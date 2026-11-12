@@ -1,3 +1,12 @@
+/**
+ * @file console_commands.c
+ * @brief Implement application commands and register their names, handlers, and help text.
+ * @ingroup console_api
+ *
+ * Handlers execute synchronously in the UART task. argc includes the command
+ * name. argv points into the parser's mutable input. Handlers must not retain
+ * these pointers.
+ */
 #include <console/cmdline.h>
 #include <console/console.h>
 
@@ -7,6 +16,12 @@
 #include <comms/connection_manager.h>
 #include <comms/server.h>
 
+/**
+ * @brief List all registered commands and ignore extra arguments.
+ * @param argc Supply the number of tokens, including the command name.
+ * @param argv Supply the tokens stored in the input buffer.
+ * @return This function always returns zero.
+ */
 static int cmd_help(int argc, char *argv[])
 {
     (void)argc;
@@ -18,6 +33,14 @@ static int cmd_help(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief Request a WPA/WPA2 connection without storing a profile.
+ * @param argc Supply the number of tokens, including the command name.
+ * @param argv Supply the tokens stored in the input buffer.
+ * @return This function returns zero on success or CMDLINE_INVALID_ARG if the
+ * arguments are invalid. It returns the negative connection manager error code
+ * if the requested operation fails.
+ */
 static int cmd_connect(int argc, char *argv[])
 {
     int16_t rc;
@@ -41,6 +64,14 @@ static int cmd_connect(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief Store a WPA/WPA2 profile for the auto-connect policy.
+ * @param argc Supply the number of tokens, including the command name.
+ * @param argv Supply the tokens stored in the input buffer.
+ * @return This function returns zero on success or CMDLINE_INVALID_ARG if the
+ * arguments are invalid. It returns the negative connection manager error code
+ * if the requested operation fails.
+ */
 static int cmd_add_profile(int argc, char *argv[])
 {
     int16_t rc;
@@ -65,6 +96,13 @@ static int cmd_add_profile(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief Reload and display the stored WiFi profiles.
+ * @param argc Supply the number of tokens, including the command name.
+ * @param argv Supply the tokens stored in the input buffer.
+ * @return This function returns zero on success or CMDLINE_INVALID_ARG if the
+ * arguments are invalid.
+ */
 static int cmd_profiles(int argc, char *argv[])
 {
     uint8_t count;
@@ -82,6 +120,13 @@ static int cmd_profiles(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief Request the current WiFi connection status.
+ * @param argc Supply the number of tokens, including the command name.
+ * @param argv Supply the tokens stored in the input buffer.
+ * @return This function returns zero on success or CMDLINE_INVALID_ARG if the
+ * arguments are invalid.
+ */
 static int cmd_status(int argc, char *argv[])
 {
     (void)argv;
@@ -95,6 +140,13 @@ static int cmd_status(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief Request the command-server status.
+ * @param argc Supply the number of tokens, including the command name.
+ * @param argv Supply the tokens stored in the input buffer.
+ * @return This function returns zero on success or CMDLINE_INVALID_ARG if the
+ * arguments are invalid.
+ */
 static int cmd_server(int argc, char *argv[])
 {
     (void)argv;
@@ -108,6 +160,13 @@ static int cmd_server(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief Request deletion of all WiFi profiles and reload the cache.
+ * @param argc Supply the number of tokens, including the command name.
+ * @param argv Supply the tokens stored in the input buffer.
+ * @return This function returns zero on success or CMDLINE_INVALID_ARG if the
+ * arguments are invalid.
+ */
 static int cmd_clear_profiles(int argc, char *argv[])
 {
     (void)argv;
@@ -123,6 +182,11 @@ static int cmd_clear_profiles(int argc, char *argv[])
     return 0;
 }
 
+/**
+ * @brief Define commands in the order used for dispatch, help, and Tab suggestions.
+ * @note Each command requires a name, handler, and help string. The final entry
+ * must have a NULL name. Names are matched exactly and case-sensitively.
+ */
 tCmdLineEntry g_psCmdTable[] = {
     { "help",           cmd_help,           "list console commands" },
     { "connect",        cmd_connect,        "connect <ssid> <passkey>" },

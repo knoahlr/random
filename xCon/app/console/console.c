@@ -1,3 +1,8 @@
+/**
+ * @file console.c
+ * @brief Edit command lines in a fixed buffer, dispatch commands, and restore the prompt.
+ * @ingroup console_api
+ */
 #include <console/console.h>
 
 #include <stdbool.h>
@@ -8,14 +13,21 @@
 #include <console/cmdline.h>
 #include <utils/uartstdio.h>
 
+/** @brief Define the prompt displayed at startup and after command or log output. */
 #define CONSOLE_PROMPT          "$uart-0: "
+/** @brief Define the input capacity, including the NUL byte reserved for dispatch. */
 #define CONSOLE_INPUT_MAX       96
+/** @brief Define the formatting buffer capacity, including the terminating NUL byte. */
 #define CONSOLE_PRINT_BUF_MAX   256
 
+/** @brief Store the partial input line. A terminating NUL byte is guaranteed only at dispatch. */
 static char console_input[CONSOLE_INPUT_MAX];
+/** @brief Track the number of valid bytes in console_input, excluding the terminator. */
 static uint32_t console_input_len;
+/** @brief Track whether output currently ends on an interactive prompt line. */
 static bool prompt_visible;
 
+/** @brief Forward a nonempty byte span to buffered UART output. */
 static void console_write(const char *s, uint32_t len)
 {
     if (len > 0) {
@@ -51,18 +63,26 @@ void console_printf(const char *fmt, ...)
     va_end(ap);
 }
 
+/** @brief Emit the prompt and mark it visible. */
 static void console_prompt(void)
 {
     console_puts(CONSOLE_PROMPT);
     prompt_visible = true;
 }
 
+/** @brief Compare a command name against a case-sensitive byte prefix. */
 static bool command_matches_prefix(const char *cmd, const char *prefix,
                                    uint32_t prefix_len)
 {
     return strncmp(cmd, prefix, prefix_len) == 0;
 }
 
+/**
+ * @brief List commands matching the text before the first space, then redraw.
+ * An empty prefix lists every command. The input remains unchanged even when
+ * only one command matches. Arguments are not completed. If no command matches,
+ * the console redraws the prompt without printing a diagnostic.
+ */
 static void console_print_matches(void)
 {
     uint32_t prefix_len = 0;
@@ -83,6 +103,10 @@ static void console_print_matches(void)
     console_write(console_input, console_input_len);
 }
 
+/**
+ * @brief Terminate and parse the line, report its result, then reset the editor.
+ * Empty input only redraws the prompt. CR and LF are handled independently.
+ */
 static void console_run_command(void)
 {
     int rc;
@@ -122,6 +146,7 @@ static void console_run_command(void)
     console_prompt();
 }
 
+/** @brief Remove and visually erase the last input byte, if present. */
 static void console_backspace(void)
 {
     if (console_input_len == 0) {
@@ -132,6 +157,7 @@ static void console_backspace(void)
     console_puts("\b \b");
 }
 
+/** @brief Append and echo one printable byte, or ring the bell if full. */
 static void console_add_char(unsigned char c)
 {
     if (console_input_len >= (CONSOLE_INPUT_MAX - 1)) {

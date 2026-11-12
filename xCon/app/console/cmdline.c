@@ -1,3 +1,7 @@
+/**
+ * @file cmdline.c
+ * @brief Parse commands in place using spaces to separate arguments and TI-derived code.
+ */
 //*****************************************************************************
 //
 // cmdline.c - Functions to help with processing command lines.
@@ -36,7 +40,8 @@
 
 //*****************************************************************************
 //
-// Defines the maximum number of arguments that can be parsed.
+//! Define the maximum token count, including the command name.
+//! The build can override this value.
 //
 //*****************************************************************************
 #ifndef CMDLINE_MAX_ARGS
@@ -45,7 +50,9 @@
 
 //*****************************************************************************
 //
-// An array to hold the pointers to the command line arguments.
+//! Store shared token pointers into the caller buffer.
+//! This array cannot support concurrent or nested parsing calls.
+//! The token list has no guaranteed NULL terminator.
 //
 //*****************************************************************************
 static char *g_ppcArgv[CMDLINE_MAX_ARGS + 1];
